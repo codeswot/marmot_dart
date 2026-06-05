@@ -8,7 +8,14 @@ import 'rust/api/media.dart' as media;
 import 'rust/state.dart';
 import '_ensure.dart';
 
+/// Entry point to the marmot_dart API.
+///
+/// One [Marmot] instance is bound to a single encrypted database at [dbPath].
+/// Construct it with one of the factory constructors ([memory], [sqlite],
+/// [sqliteWithKey]) and use the instance methods for groups, key packages,
+/// messages and media. Identity helpers live on [MarmotIdentity].
 class Marmot {
+  /// Absolute path to the SQLite database backing this instance.
   final String dbPath;
 
   Marmot._({required this.dbPath});
@@ -17,6 +24,7 @@ class Marmot {
   // Factories
   // ---------------------------------------------------------------------------
 
+  /// Initialise the OS keyring store. Call once before [sqlite].
   static Future<void> initKeyringStore() => init.initKeyringStore();
 
   /// In-memory storage — ephemeral, for testing.
@@ -62,11 +70,14 @@ class Marmot {
   // Groups
   // ---------------------------------------------------------------------------
 
+  /// Create a new MLS group. Returns the group plus one welcome rumor per
+  /// invited member (gift-wrap and send each over Nostr).
   Future<groups.GroupCreateResult> createGroup(
     String creatorNpub,
     groups.CreateGroupParams params,
   ) => groups.create(dbPath: dbPath, creatorNpub: creatorNpub, params: params);
 
+  /// Validate and store an incoming welcome rumor as a pending invite.
   Future<void> processWelcome(String wrapperEventId, String welcomeRumorJson) =>
       groups.processWelcome(
         dbPath: dbPath,
@@ -74,17 +85,23 @@ class Marmot {
         welcomeRumorJson: welcomeRumorJson,
       );
 
+  /// List welcomes that have been processed but not yet accepted.
   Future<List<groups.PendingWelcome>> getPendingWelcomes() =>
       groups.getPendingWelcomes(dbPath: dbPath);
 
+  /// Accept a pending welcome (by its id) and join the group.
   Future<void> acceptWelcome(String welcomeId) =>
       groups.acceptWelcome(dbPath: dbPath, welcomeId: welcomeId);
 
+  /// List all groups this identity is a member of.
   Future<List<groups.MarmotGroup>> listGroups() => groups.list(dbPath: dbPath);
 
+  /// List the members of a group.
   Future<List<groups.MarmotMember>> getMembers(String groupId) =>
       groups.getMembers(dbPath: dbPath, groupId: groupId);
 
+  /// Add a member from their published key-package event. Returns the commit
+  /// event plus the welcome rumor(s) to deliver to the new member.
   Future<groups.MemberChangeResult> addMember(
     String groupId,
     String keyPackageEventJson,
@@ -94,6 +111,7 @@ class Marmot {
     keyPackageEventJson: keyPackageEventJson,
   );
 
+  /// Remove a member by npub. Returns the commit event to publish.
   Future<groups.MemberChangeResult> removeMember(String groupId, String npub) =>
       groups.removeMember(dbPath: dbPath, groupId: groupId, npub: npub);
 
@@ -107,15 +125,15 @@ class Marmot {
     List<String>? relayUrls,
     List<String>? adminNpubs,
   }) => groups.updateGroupMetadata(
-        dbPath: dbPath,
-        groupId: groupId,
-        update: groups.GroupMetadataUpdate(
-          name: name,
-          description: description,
-          relayUrls: relayUrls,
-          adminNpubs: adminNpubs,
-        ),
-      );
+    dbPath: dbPath,
+    groupId: groupId,
+    update: groups.GroupMetadataUpdate(
+      name: name,
+      description: description,
+      relayUrls: relayUrls,
+      adminNpubs: adminNpubs,
+    ),
+  );
 
   /// Encrypt a group image for upload. Upload [GroupImagePrepared.encryptedData]
   /// to Blossom authenticating with [GroupImagePrepared.uploadNsec], then call
@@ -137,13 +155,13 @@ class Marmot {
     required Uint8List imageNonce,
     required Uint8List imageUploadKey,
   }) => groups.setGroupImage(
-        dbPath: dbPath,
-        groupId: groupId,
-        imageHash: imageHash,
-        imageKey: imageKey,
-        imageNonce: imageNonce,
-        imageUploadKey: imageUploadKey,
-      );
+    dbPath: dbPath,
+    groupId: groupId,
+    imageHash: imageHash,
+    imageKey: imageKey,
+    imageNonce: imageNonce,
+    imageUploadKey: imageUploadKey,
+  );
 
   /// Remove the group image. Returns the kind:445 commit event JSON to publish.
   Future<String> clearGroupImage(String groupId) =>
@@ -170,11 +188,15 @@ class Marmot {
   // Key packages
   // ---------------------------------------------------------------------------
 
+  /// Mint an MLS key package. Returns the pieces to assemble, sign and publish
+  /// a kind:30443 event yourself.
   Future<key_packages.KeyPackageEventData> createKeyPackage(
     String npub,
     List<String> relayUrls,
   ) => key_packages.create(dbPath: dbPath, npub: npub, relayUrls: relayUrls);
 
+  /// Mint a key package and return a fully signed kind:30443 event, ready to
+  /// publish.
   Future<String> createSignedKeyPackage(String nsec, List<String> relayUrls) =>
       key_packages.createSignedEvent(
         dbPath: dbPath,
@@ -186,6 +208,8 @@ class Marmot {
   // Messages
   // ---------------------------------------------------------------------------
 
+  /// Encrypt an unsigned rumor for the group. Returns the kind:445 event JSON
+  /// to publish to the group's relays.
   Future<String> sendMessage(String unsignedRumorJson, String groupId) =>
       messages.send(
         dbPath: dbPath,
@@ -193,6 +217,8 @@ class Marmot {
         groupId: groupId,
       );
 
+  /// Build a kind-9 media-message rumor carrying a MIP-04 `imeta` tag. Encrypt
+  /// the file with [encryptMedia] and upload the blob to Blossom first.
   Future<String> buildMediaRumor({
     required String npub,
     required String groupId,
@@ -207,21 +233,24 @@ class Marmot {
     int? dimensionsWidth,
     int? dimensionsHeight,
   }) => messages.buildMediaRumor(
-        dbPath: dbPath,
-        npub: npub,
-        groupId: groupId,
-        caption: caption,
-        url: url,
-        originalHash: originalHash,
-        mimeType: mimeType,
-        filename: filename,
-        nonce: nonce,
-        blurhash: blurhash,
-        thumbhash: thumbhash,
-        dimensionsWidth: dimensionsWidth,
-        dimensionsHeight: dimensionsHeight,
-      );
+    dbPath: dbPath,
+    npub: npub,
+    groupId: groupId,
+    caption: caption,
+    url: url,
+    originalHash: originalHash,
+    mimeType: mimeType,
+    filename: filename,
+    nonce: nonce,
+    blurhash: blurhash,
+    thumbhash: thumbhash,
+    dimensionsWidth: dimensionsWidth,
+    dimensionsHeight: dimensionsHeight,
+  );
 
+  /// Decrypt and apply an incoming Nostr event. Returns the decoded message
+  /// (including any [MarmotMessage.media]) for application messages, or null for
+  /// non-application events (e.g. commits, which are still applied).
   Future<messages.MarmotMessage?> processIncoming(String nostrEventJson) =>
       messages.processIncoming(dbPath: dbPath, nostrEventJson: nostrEventJson);
 
@@ -229,6 +258,8 @@ class Marmot {
   // Media
   // ---------------------------------------------------------------------------
 
+  /// Encrypt a file for the group (MIP-04). Upload the returned
+  /// [EncryptedMediaOutput.encryptedData] to Blossom, then [buildMediaRumor].
   Future<media.EncryptedMediaOutput> encryptMedia(
     String groupId,
     Uint8List data,
@@ -242,6 +273,9 @@ class Marmot {
     filename: filename,
   );
 
+  /// Decrypt a downloaded media blob using a [MediaRefInput] built from a
+  /// received [MarmotMediaRef]. `mimeType` and `filename` must match the
+  /// originals — they are part of the key derivation.
   Future<Uint8List> decryptMedia(
     String groupId,
     Uint8List encryptedData,
@@ -257,6 +291,7 @@ class Marmot {
   // Lifecycle
   // ---------------------------------------------------------------------------
 
+  /// Release this session's resources and remove it from the session registry.
   void dispose() {
     init.removeSession(dbPath: dbPath);
   }

@@ -1,6 +1,8 @@
 import 'rust/api/messages.dart' as g;
 import '_ensure.dart';
 
+/// Build an unsigned kind-9 group-message rumor with the given text/JSON
+/// content, authored by [npub]. Pass the result to [Marmot.sendMessage].
 Future<String> buildUnsignedRumor(String npub, String content) async {
   await ensureNativeLibrary();
   return g.buildUnsignedRumor(npub: npub, content: content);

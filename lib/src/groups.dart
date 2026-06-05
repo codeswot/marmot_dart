@@ -1,14 +1,26 @@
 import 'rust/api/groups.dart' as g;
 import '_ensure.dart';
 
-Future<g.GroupCreateResult> createGroup(String dbPath, String creatorNpub, g.CreateGroupParams params) async {
+Future<g.GroupCreateResult> createGroup(
+  String dbPath,
+  String creatorNpub,
+  g.CreateGroupParams params,
+) async {
   await ensureNativeLibrary();
   return g.create(dbPath: dbPath, creatorNpub: creatorNpub, params: params);
 }
 
-Future<void> processWelcome(String dbPath, String wrapperEventId, String welcomeRumorJson) async {
+Future<void> processWelcome(
+  String dbPath,
+  String wrapperEventId,
+  String welcomeRumorJson,
+) async {
   await ensureNativeLibrary();
-  return g.processWelcome(dbPath: dbPath, wrapperEventId: wrapperEventId, welcomeRumorJson: welcomeRumorJson);
+  return g.processWelcome(
+    dbPath: dbPath,
+    wrapperEventId: wrapperEventId,
+    welcomeRumorJson: welcomeRumorJson,
+  );
 }
 
 Future<List<g.PendingWelcome>> getPendingWelcomes(String dbPath) async {
@@ -31,12 +43,24 @@ Future<List<g.MarmotMember>> getMembers(String dbPath, String groupId) async {
   return g.getMembers(dbPath: dbPath, groupId: groupId);
 }
 
-Future<g.MemberChangeResult> addMember(String dbPath, String groupId, String keyPackageEventJson) async {
+Future<g.MemberChangeResult> addMember(
+  String dbPath,
+  String groupId,
+  String keyPackageEventJson,
+) async {
   await ensureNativeLibrary();
-  return g.addMember(dbPath: dbPath, groupId: groupId, keyPackageEventJson: keyPackageEventJson);
+  return g.addMember(
+    dbPath: dbPath,
+    groupId: groupId,
+    keyPackageEventJson: keyPackageEventJson,
+  );
 }
 
-Future<g.MemberChangeResult> removeMember(String dbPath, String groupId, String npub) async {
+Future<g.MemberChangeResult> removeMember(
+  String dbPath,
+  String groupId,
+  String npub,
+) async {
   await ensureNativeLibrary();
   return g.removeMember(dbPath: dbPath, groupId: groupId, npub: npub);
 }

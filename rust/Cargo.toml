@@ -1,0 +1,49 @@
+[package]
+name = "marmot_dart"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[features]
+default = ["mip04"]
+mip04 = ["mdk-core/mip04"]
+test-utils = ["mdk-sqlite-storage/test-utils"]
+
+[dependencies]
+flutter_rust_bridge = "=2.12.0"
+mdk-core = "0.8.0"
+mdk-sqlite-storage = "0.8.0"
+mdk-storage-traits = "0.8.0"
+mdk-memory-storage = "0.8.0"
+nostr = "0.44"
+keyring-core = "1.0"
+thiserror = "2"
+hex = "0.4"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { version = "1.0", features = ["keychain"] }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+apple-native-keyring-store = { version = "1.0", features = ["protected"] }
+libsqlite3-sys = { version = "0.35", features = ["bundled-sqlcipher-vendored-openssl"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-native-keyring-store = "1.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+linux-keyutils-keyring-store = "1.0"
+
+# Cross-compiled mobile targets have no system OpenSSL headers, which
+# sqlcipher (via mdk-sqlite-storage -> rusqlite -> libsqlite3-sys) needs.
+# Build OpenSSL from source for these targets via Cargo feature unification.
+[target.'cfg(target_os = "android")'.dependencies]
+android-native-keyring-store = "1.0"
+libsqlite3-sys = { version = "0.35", features = ["bundled-sqlcipher-vendored-openssl"] }
+
+[dev-dependencies]
+mdk-memory-storage = "0.8.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }

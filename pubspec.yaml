@@ -1,0 +1,48 @@
+name: marmot_dart
+description: "End-to-end encrypted group messaging for Flutter, built on the Marmot protocol (MLS over Nostr) via MDK."
+version: 0.0.1
+homepage: https://github.com/elmubarak333/marmot_dart
+repository: https://github.com/elmubarak333/marmot_dart
+topics:
+  - nostr
+  - mls
+  - encryption
+  - messaging
+  - marmot
+
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.3.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_rust_bridge: 2.12.0
+  freezed_annotation: ^3.1.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  integration_test:
+    sdk: flutter
+  freezed: ^3.2.5
+  build_runner: ^2.15.0
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# This is an FFI plugin: the Rust layer is compiled and linked by cargokit
+# through flutter_rust_bridge. There is no hand-written platform-native code.
+flutter:
+  plugin:
+    platforms:
+      android:
+        ffiPlugin: true
+      ios:
+        ffiPlugin: true
+      linux:
+        ffiPlugin: true
+      macos:
+        ffiPlugin: true
+      windows:
+        ffiPlugin: true

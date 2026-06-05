@@ -52,3 +52,61 @@ fn keypair_with_secret(keys: &Keys) -> Result<NostrKeypair, MarmotError> {
         pubkey_hex: keys.public_key().to_hex(),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generate_returns_valid_keypair() {
+        let kp = generate();
+        assert!(kp.npub.starts_with("npub1"), "npub: {}", kp.npub);
+        assert!(kp.nsec.as_ref().unwrap().starts_with("nsec1"));
+        assert_eq!(kp.pubkey_hex.len(), 64);
+    }
+
+    #[test]
+    fn import_from_nsec_roundtrip() {
+        let kp = generate();
+        let nsec = kp.nsec.clone().unwrap();
+        let imported = import_from_nsec(nsec).expect("import from nsec");
+        assert_eq!(imported.npub, kp.npub);
+        assert_eq!(imported.pubkey_hex, kp.pubkey_hex);
+    }
+
+    #[test]
+    fn validate_nsec_rejects_garbage() {
+        assert!(!validate_nsec("not-a-key".into()));
+        assert!(!validate_nsec("".into()));
+    }
+
+    #[test]
+    fn validate_nsec_accepts_valid() {
+        let kp = generate();
+        assert!(validate_nsec(kp.nsec.unwrap()));
+    }
+
+    #[test]
+    fn npub_from_nsec_derives_correctly() {
+        let kp = generate();
+        let npub = npub_from_nsec(kp.nsec.unwrap()).expect("npub from nsec");
+        assert_eq!(npub, kp.npub);
+    }
+
+    #[test]
+    fn npub_from_nsec_invalid_returns_error() {
+        assert!(npub_from_nsec("not-a-key".into()).is_err());
+    }
+
+    #[test]
+    fn pubkey_hex_from_npub_roundtrip() {
+        let kp = generate();
+        let hex = pubkey_hex_from_npub(kp.npub).expect("hex from npub");
+        assert_eq!(hex, kp.pubkey_hex);
+    }
+
+    #[test]
+    fn pubkey_hex_from_npub_invalid_returns_error() {
+        assert!(pubkey_hex_from_npub("npub1bad".into()).is_err());
+    }
+}

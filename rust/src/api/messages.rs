@@ -178,7 +178,10 @@ mod tests {
     use nostr::{EventBuilder, EventId, Keys, Kind, RelayUrl, ToBech32};
 
     use super::*;
-    use crate::api::groups::group_dto;
+    use crate::api::groups::{self, group_dto, CreateGroupParams};
+    use crate::api::key_packages;
+    use crate::api::media;
+    use crate::state::{self, StorageConfig};
 
     #[test]
     fn two_party_group_and_message() {
@@ -246,5 +249,166 @@ mod tests {
 
     fn test_mdk() -> MDK<MdkMemoryStorage> {
         MDK::new(MdkMemoryStorage::default())
+    }
+
+    // ── media + imeta roundtrip through the exact binding-call path ──────────
+
+    #[cfg(feature = "mip04")]
+    #[test]
+    fn media_encrypt_imeta_roundtrip() {
+        let alice_keys = Keys::generate();
+        let bob_keys = Keys::generate();
+        let alice_npub = alice_keys.public_key().to_bech32().unwrap();
+        let bob_npub = bob_keys.public_key().to_bech32().unwrap();
+
+        // Temp DBs — each party gets their own
+        let alice_db = temp_db_path("alice");
+        let bob_db = temp_db_path("bob");
+
+        state::initialise(
+            alice_db.clone(),
+            StorageConfig::SqliteWithKey {
+                db_path: alice_db.clone(),
+                db_key: fixed_32b(),
+            },
+        )
+        .expect("alice init");
+        state::initialise(
+            bob_db.clone(),
+            StorageConfig::SqliteWithKey {
+                db_path: bob_db.clone(),
+                db_key: fixed_32b(),
+            },
+        )
+        .expect("bob init");
+
+        // Bob mints a key package, then signs the event himself
+        let bob_kp = key_packages::create(
+            bob_db.clone(),
+            bob_npub.clone(),
+            vec!["wss://test.relay".into()],
+        )
+        .expect("bob key package");
+        let bob_signed_kp = nostr::EventBuilder::new(
+            nostr::Kind::Custom(30443),
+            bob_kp.content,
+        )
+        .tags(
+            bob_kp
+                .tags_30443
+                .iter()
+                .map(|t| nostr::Tag::parse(t.clone()).expect("tag parse")),
+        )
+        .sign_with_keys(&bob_keys)
+        .expect("sign bob kp")
+        .as_json();
+
+        // Alice creates the group
+        let created = groups::create(
+            alice_db.clone(),
+            alice_npub.clone(),
+            CreateGroupParams {
+                name: "Media Test".into(),
+                description: "Media roundtrip".into(),
+                relay_urls: vec!["wss://test.relay".into()],
+                member_key_package_event_jsons: vec![bob_signed_kp],
+            },
+        )
+        .expect("create group");
+        let group_id = &created.group.id;
+
+        // Bob accepts the welcome
+        let welcome_rumor = &created.welcome_rumors[0];
+        groups::process_welcome(
+            bob_db.clone(),
+            EventId::all_zeros().to_hex(),
+            welcome_rumor.clone(),
+        )
+        .expect("bob process welcome");
+        let pending = groups::get_pending_welcomes(bob_db.clone()).expect("pending");
+        groups::accept_welcome(bob_db.clone(), pending[0].id.clone()).expect("accept welcome");
+
+        // ── Alice: encrypt media → build imeta rumor → send ──────────────────
+
+        let plaintext = b"hello secret media data!".to_vec();
+        let enc = media::encrypt_media(
+            alice_db.clone(),
+            group_id.clone(),
+            plaintext.clone(),
+            "text/plain".into(),
+            "secret.txt".into(),
+        )
+        .expect("encrypt media");
+
+        let rumor = build_media_rumor(
+            alice_db.clone(),
+            alice_npub.clone(),
+            group_id.clone(),
+            "check this file".into(),
+            "https://blossom.example/file".into(),
+            enc.original_hash.clone(),
+            enc.mime_type.clone(),
+            enc.filename.clone(),
+            enc.nonce.clone(),
+            enc.blurhash.clone(),
+            enc.thumbhash.clone(),
+            enc.dimensions_width,
+            enc.dimensions_height,
+        )
+        .expect("build media rumor");
+
+        let event_json = send(alice_db.clone(), rumor, group_id.clone()).expect("send");
+
+        // ── Bob: process incoming → verify media refs → decrypt ──────────────
+
+        let msg = process_incoming(bob_db.clone(), event_json)
+            .expect("process incoming")
+            .expect("application message");
+
+        assert_eq!(msg.text.as_deref(), Some("check this file"));
+        assert_eq!(msg.sender_npub, alice_npub);
+        assert_eq!(msg.media.len(), 1);
+
+        let ref0 = &msg.media[0];
+        assert_eq!(ref0.url, "https://blossom.example/file");
+        assert_eq!(ref0.mime_type, "text/plain");
+        assert_eq!(ref0.filename, "secret.txt");
+        assert_eq!(ref0.original_hash, enc.original_hash);
+        assert_eq!(ref0.nonce, enc.nonce);
+
+        let decrypted = media::decrypt_media(
+            bob_db.clone(),
+            group_id.clone(),
+            enc.encrypted_data.clone(),
+            media::MediaRefInput {
+                url: ref0.url.clone(),
+                original_hash: ref0.original_hash.clone(),
+                mime_type: ref0.mime_type.clone(),
+                filename: ref0.filename.clone(),
+                scheme_version: ref0.scheme_version.clone(),
+                nonce: ref0.nonce.clone(),
+            },
+        )
+        .expect("decrypt media");
+
+        assert_eq!(decrypted, plaintext);
+
+        // Cleanup
+        state::remove_session(&alice_db);
+        state::remove_session(&bob_db);
+        let _ = std::fs::remove_file(&alice_db);
+        let _ = std::fs::remove_file(&bob_db);
+    }
+
+    fn temp_db_path(label: &str) -> String {
+        let dir = std::env::temp_dir().join("marmot_dart_tests");
+        let _ = std::fs::create_dir_all(&dir);
+        dir.join(format!("{label}_{}.db", std::process::id()))
+            .to_string_lossy()
+            .to_string()
+    }
+
+    fn fixed_32b() -> Vec<u8> {
+        vec![0xABu8; 32]
     }
 }

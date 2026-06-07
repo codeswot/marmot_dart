@@ -1,3 +1,14 @@
+## 0.0.2
+
+- `buildUnsignedRumor` now uses named parameters with optional `contentType` for structured (JSON) payloads. The receiver's `MarmotMessage.payloadJson` is populated when a content-type tag is present.
+- New `Marmot.sendStructured(npub, groupId, payload)` — one-call convenience for sending JSON messages.
+- New `Marmot.getMessages(groupId, {params})` — paginated retrieval of stored messages.
+- New `Marmot.getMessage(groupId, eventIdHex)` — single message lookup by Nostr event ID.
+- New `Marmot.getLastMessage(groupId)` — most recent message in a group.
+- New `MessageListParams` model (limit, offset, sortByProcessedAt).
+- Comprehensive test suite: 22 Rust tests (identity, key packages, groups, messages, media roundtrip) and 41 Dart model tests.
+- Codebase cleanup: consolidated redundant wrapper files into `marmot.dart`.
+
 ## 0.0.1
 
 Initial development release. Built on MDK `0.8` via flutter_rust_bridge `2.12`.
@@ -48,14 +59,10 @@ Full MLS group lifecycle on `Marmot` instance:
 
 ### Messages
 
-- `buildUnsignedRumor({npub, content, contentType?})` — build unsigned kind-9 rumor (top-level, pure)
+- `buildUnsignedRumor(npub, content)` — build unsigned kind-9 rumor (top-level, pure)
 - `sendMessage(unsignedRumorJson, groupId)` — encrypt rumor via MLS, return kind:445 event
-- `buildMediaRumor({npub, groupId, caption, url, originalHash, mimeType, filename, nonce, ...})` — build media rumor with imeta tag
-- `sendStructured(npub, groupId, payload)` — convenience for JSON payloads
+- `buildMediaRumor({...})` — build media rumor with MIP-04 imeta tag
 - `processIncoming(nostrEventJson)` — decrypt and apply incoming event
-- `getMessages(groupId, {params})` — list stored messages, paginated
-- `getMessage(groupId, eventIdHex)` — single message by event ID
-- `getLastMessage(groupId)` — most recent message
 
 ### Media (MIP-04)
 
@@ -64,7 +71,4 @@ Full MLS group lifecycle on `Marmot` instance:
 
 ### Top-level exports
 
-- `buildUnsignedRumor` — pure function, no Marmot instance needed
-- `signEvent` — pure function, sign any Nostr event
-- `MarmotIdentity` — static identity helpers
-- Models: `StorageConfig`, `NostrKeypair`, `KeyPackageEventData`, `CreateGroupParams`, `GroupCreateResult`, `MarmotGroup`, `MarmotMember`, `PendingWelcome`, `MemberChangeResult`, `GroupMetadataUpdate`, `GroupImagePrepared`, `MarmotMessage`, `MarmotMediaRef`, `MessageListParams`, `EncryptedMediaOutput`, `MediaRefInput`, `MarmotError`
+`buildUnsignedRumor`, `signEvent`, `MarmotIdentity`, plus models: `StorageConfig`, `NostrKeypair`, `KeyPackageEventData`, `CreateGroupParams`, `GroupCreateResult`, `MarmotGroup`, `MarmotMember`, `PendingWelcome`, `MemberChangeResult`, `GroupMetadataUpdate`, `GroupImagePrepared`, `MarmotMessage`, `MarmotMediaRef`, `EncryptedMediaOutput`, `MediaRefInput`, `MarmotError`

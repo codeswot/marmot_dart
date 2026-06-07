@@ -45,12 +45,18 @@ class GroupViewModel extends ChangeNotifier {
 
   Future<void> editGroup({String? name, String? description}) async {
     final n = (name != null && name.trim().isNotEmpty) ? name.trim() : null;
-    final d = (description != null && description.trim().isNotEmpty) ? description.trim() : null;
+    final d = (description != null && description.trim().isNotEmpty)
+        ? description.trim()
+        : null;
     if (n == null && d == null) return;
     busy = true;
     notifyListeners();
     try {
-      final ev = await device.marmot.updateGroupMetadata(group.id, name: n, description: d);
+      final ev = await device.marmot.updateGroupMetadata(
+        group.id,
+        name: n,
+        description: d,
+      );
       await RelayService.publish(ev);
       log('${device.name}: group metadata updated');
       await refreshGroup();
@@ -67,14 +73,22 @@ class GroupViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       final result = await FilePicker.platform.pickFiles(type: FileType.image);
-      if (result == null || result.files.isEmpty || result.files.first.path == null) return;
+      if (result == null ||
+          result.files.isEmpty ||
+          result.files.first.path == null) {
+        return;
+      }
       final file = result.files.first;
       final bytes = await File(file.path!).readAsBytes();
       final mime = _mimeType(file.extension ?? 'png');
 
       final prep = await Marmot.prepareGroupImage(bytes, mime);
       // Upload authenticating with the derived one-time keypair, not the user's nsec.
-      final url = await BlossomService.upload(prep.uploadNsec, prep.uploadPubkeyHex, prep.encryptedData);
+      final url = await BlossomService.upload(
+        prep.uploadNsec,
+        prep.uploadPubkeyHex,
+        prep.encryptedData,
+      );
       if (url == null) {
         log('${device.name}: group image upload failed');
         return;
@@ -115,7 +129,9 @@ class GroupViewModel extends ChangeNotifier {
   }
 
   Future<void> loadGroupImage() async {
-    final hash = group.imageHash, key = group.imageKey, nonce = group.imageNonce;
+    final hash = group.imageHash,
+        key = group.imageKey,
+        nonce = group.imageNonce;
     if (hash == null || key == null || nonce == null) {
       imageBytes = null;
       return;
@@ -143,7 +159,9 @@ class GroupViewModel extends ChangeNotifier {
     final rumor = await buildUnsignedRumor(npub: device.npub, content: text);
     final ev = await device.marmot.sendMessage(rumor, group.id);
     await RelayService.publish(ev);
-    messages.add(ChatMessage.text(sender: device.name, isMine: true, text: text));
+    messages.add(
+      ChatMessage.text(sender: device.name, isMine: true, text: text),
+    );
     log('${device.name}: message published');
     notifyListeners();
   }
@@ -162,15 +180,23 @@ class GroupViewModel extends ChangeNotifier {
 
       log('${device.name}: encrypting $name (${bytes.length}B, $mime)...');
       final r = await device.marmot.encryptMedia(group.id, bytes, mime, name);
-      log('${device.name}: encrypted ${r.originalSize.toInt()}B -> ${r.encryptedSize.toInt()}B');
+      log(
+        '${device.name}: encrypted ${r.originalSize.toInt()}B -> ${r.encryptedSize.toInt()}B',
+      );
 
-      final url = await BlossomService.upload(device.nsec, device.hex, r.encryptedData);
+      final url = await BlossomService.upload(
+        device.nsec,
+        device.hex,
+        r.encryptedData,
+      );
       if (url == null) {
-        messages.add(ChatMessage.text(
-          sender: device.name,
-          isMine: true,
-          text: '[ERROR] Blossom upload failed',
-        ));
+        messages.add(
+          ChatMessage.text(
+            sender: device.name,
+            isMine: true,
+            text: '[ERROR] Blossom upload failed',
+          ),
+        );
         notifyListeners();
         return;
       }
@@ -203,17 +229,21 @@ class GroupViewModel extends ChangeNotifier {
         dimensionsWidth: r.dimensionsWidth,
         dimensionsHeight: r.dimensionsHeight,
       );
-      messages.add(ChatMessage.file(
-        sender: device.name,
-        isMine: true,
-        media: ref,
-        text: caption.trim().isEmpty ? null : caption,
-        status: FileStatus.sent,
-      ));
+      messages.add(
+        ChatMessage.file(
+          sender: device.name,
+          isMine: true,
+          media: ref,
+          text: caption.trim().isEmpty ? null : caption,
+          status: FileStatus.sent,
+        ),
+      );
       notifyListeners();
     } catch (e) {
       log('File send error: $e');
-      messages.add(ChatMessage.text(sender: device.name, isMine: true, text: '[ERROR] $e'));
+      messages.add(
+        ChatMessage.text(sender: device.name, isMine: true, text: '[ERROR] $e'),
+      );
       notifyListeners();
     }
   }
@@ -223,14 +253,23 @@ class GroupViewModel extends ChangeNotifier {
     final events = await RelayService.query([
       Filter(
         kinds: const [445],
-        since: DateTime.now().subtract(const Duration(minutes: 5)).millisecondsSinceEpoch ~/ 1000,
+        since:
+            DateTime.now()
+                .subtract(const Duration(minutes: 5))
+                .millisecondsSinceEpoch ~/
+            1000,
         limit: 50,
       ),
     ]);
     final seen = <String>{};
     for (final raw in events) {
       final tags = raw['tags'] as List? ?? [];
-      final hTag = tags.cast<List>().firstWhere((t) => t[0] == 'h', orElse: () => ['h', ''])[1] as String;
+      final hTag =
+          tags.cast<List>().firstWhere(
+                (t) => t[0] == 'h',
+                orElse: () => ['h', ''],
+              )[1]
+              as String;
       if (hTag.isEmpty || hTag != group.nostrGroupId) continue;
       final eid = raw['id'] as String?;
       if (eid != null && !seen.add(eid)) continue;
@@ -239,28 +278,36 @@ class GroupViewModel extends ChangeNotifier {
         if (m == null) continue;
         final mine = m.senderNpub == device.npub;
         final sender = mine ? device.name : m.senderNpub.substring(0, 8);
-        final caption = (m.text != null && m.text!.trim().isNotEmpty) ? m.text : null;
+        final caption = (m.text != null && m.text!.trim().isNotEmpty)
+            ? m.text
+            : null;
         if (m.media.isNotEmpty) {
           for (final ref in m.media) {
             final saved = _downloaded[ref.url];
-            messages.add(ChatMessage.file(
-              sender: sender,
-              isMine: mine,
-              media: ref,
-              text: caption,
-              status: saved != null ? FileStatus.done : FileStatus.pending,
-              savedPath: saved,
-            ));
+            messages.add(
+              ChatMessage.file(
+                sender: sender,
+                isMine: mine,
+                media: ref,
+                text: caption,
+                status: saved != null ? FileStatus.done : FileStatus.pending,
+                savedPath: saved,
+              ),
+            );
           }
         } else {
-          messages.add(ChatMessage.text(sender: sender, isMine: mine, text: m.text ?? ''));
+          messages.add(
+            ChatMessage.text(sender: sender, isMine: mine, text: m.text ?? ''),
+          );
         }
       } catch (e) {
         log('  process error: $e');
       }
     }
     await refreshGroup();
-    log('${device.name}: refreshed (${events.length} events, ${messages.length} messages)');
+    log(
+      '${device.name}: refreshed (${events.length} events, ${messages.length} messages)',
+    );
     notifyListeners();
   }
 
@@ -308,9 +355,15 @@ class GroupViewModel extends ChangeNotifier {
 
   String _mimeType(String ext) {
     const map = {
-      'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
-      'gif': 'image/gif', 'webp': 'image/webp', 'mp4': 'video/mp4',
-      'txt': 'text/plain', 'pdf': 'application/pdf', 'json': 'application/json',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'mp4': 'video/mp4',
+      'txt': 'text/plain',
+      'pdf': 'application/pdf',
+      'json': 'application/json',
       'bin': 'application/octet-stream',
     };
     return map[ext.toLowerCase()] ?? 'application/octet-stream';

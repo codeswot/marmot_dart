@@ -1,5 +1,6 @@
 /// This is copied from Cargokit (which is the official way to use it currently)
 /// Details: https://fzyzcjy.github.io/flutter_rust_bridge/manual/integrate/builtin
+library;
 
 import 'dart:convert';
 import 'dart:io';
@@ -24,10 +25,7 @@ class CrateHash {
     )._compute();
   }
 
-  CrateHash._({
-    required this.manifestDir,
-    required this.tempStorage,
-  });
+  CrateHash._({required this.manifestDir, required this.tempStorage});
 
   String _compute() {
     final files = getFiles();

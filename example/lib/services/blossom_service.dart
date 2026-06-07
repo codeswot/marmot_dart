@@ -45,16 +45,18 @@ class BlossomService {
     final firstSuccess = Completer<String?>();
     var pending = _blossomServers.length;
     for (final server in _blossomServers) {
-      _putBlob(server, authBase64, data).then((ok) {
-        if (ok && !firstSuccess.isCompleted) {
-          log('Blossom upload OK: $server ($hash)');
-          firstSuccess.complete('$server/$hash');
-        }
-      }).whenComplete(() {
-        if (--pending == 0 && !firstSuccess.isCompleted) {
-          firstSuccess.complete(null);
-        }
-      });
+      _putBlob(server, authBase64, data)
+          .then((ok) {
+            if (ok && !firstSuccess.isCompleted) {
+              log('Blossom upload OK: $server ($hash)');
+              firstSuccess.complete('$server/$hash');
+            }
+          })
+          .whenComplete(() {
+            if (--pending == 0 && !firstSuccess.isCompleted) {
+              firstSuccess.complete(null);
+            }
+          });
     }
     return firstSuccess.future;
   }
@@ -100,8 +102,9 @@ class BlossomService {
     for (final url in candidates) {
       if (!tried.add(url)) continue;
       try {
-        final response =
-            await http.get(Uri.parse(url)).timeout(_downloadTimeout);
+        final response = await http
+            .get(Uri.parse(url))
+            .timeout(_downloadTimeout);
         if (response.statusCode == 200) {
           log('Blossom download OK: $url');
           return response.bodyBytes;

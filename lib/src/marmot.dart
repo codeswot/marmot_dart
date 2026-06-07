@@ -32,7 +32,10 @@ Future<String> buildUnsignedRumor({
 /// [Marmot] instance needed. Returns the signed event JSON.
 Future<String> signEvent(String nsec, String unsignedEventJson) async {
   await ensureNativeLibrary();
-  return key_packages.signEvent(nsec: nsec, unsignedEventJson: unsignedEventJson);
+  return key_packages.signEvent(
+    nsec: nsec,
+    unsignedEventJson: unsignedEventJson,
+  );
 }
 
 /// Entry point to the marmot_dart API.

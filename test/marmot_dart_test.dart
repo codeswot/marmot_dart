@@ -213,10 +213,7 @@ void main() {
     });
 
     test('partial update sets some fields', () {
-      const update = GroupMetadataUpdate(
-        name: 'New',
-        adminNpubs: ['npub1a'],
-      );
+      const update = GroupMetadataUpdate(name: 'New', adminNpubs: ['npub1a']);
       expect(update.name, 'New');
       expect(update.description, isNull);
       expect(update.adminNpubs, ['npub1a']);

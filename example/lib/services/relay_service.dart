@@ -16,7 +16,9 @@ class RelayService {
   /// Publish to all relays in parallel.
   static Future<int> publish(String signedJson) async {
     final sw = Stopwatch()..start();
-    final results = await Future.wait(_relays.map((url) => _publishOne(url, signedJson)));
+    final results = await Future.wait(
+      _relays.map((url) => _publishOne(url, signedJson)),
+    );
     final ok = results.where((r) => r).length;
     log('PUB  → $ok/${_relays.length} relays (${sw.elapsedMilliseconds}ms)');
     return ok;
@@ -27,11 +29,16 @@ class RelayService {
       final sw = Stopwatch()..start();
       final ws = await WebSocket.connect(url);
       final c = Completer<bool>();
-      ws.listen((d) {
-        final m = jsonDecode(d as String) as List;
-        if (m[0] == 'OK') c.complete(m[2] == true);
-        if (m[0] == 'NOTICE') log('  PUB $url NOTICE: ${m[1]}');
-      }, onError: (_) { if (!c.isCompleted) c.complete(false); });
+      ws.listen(
+        (d) {
+          final m = jsonDecode(d as String) as List;
+          if (m[0] == 'OK') c.complete(m[2] == true);
+          if (m[0] == 'NOTICE') log('  PUB $url NOTICE: ${m[1]}');
+        },
+        onError: (_) {
+          if (!c.isCompleted) c.complete(false);
+        },
+      );
       ws.add(jsonEncode(['EVENT', jsonDecode(json)]));
       final ok = await c.future.timeout(const Duration(seconds: 5));
       await ws.close();
@@ -51,7 +58,9 @@ class RelayService {
     log('QRY REQ: $req');
 
     final all = <String, Map<String, dynamic>>{};
-    final results = await Future.wait(_relays.map((url) => _queryOne(url, req)));
+    final results = await Future.wait(
+      _relays.map((url) => _queryOne(url, req)),
+    );
     for (final r in results) {
       all.addAll(r);
     }
@@ -59,21 +68,34 @@ class RelayService {
     return all.values.toList();
   }
 
-  static Future<Map<String, Map<String, dynamic>>> _queryOne(String url, String reqJson) async {
+  static Future<Map<String, Map<String, dynamic>>> _queryOne(
+    String url,
+    String reqJson,
+  ) async {
     final all = <String, Map<String, dynamic>>{};
     try {
       final sw = Stopwatch()..start();
       final ws = await WebSocket.connect(url);
       final c = Completer<void>();
-      ws.listen((d) {
-        final m = jsonDecode(d as String) as List;
-        if (m[0] == 'EVENT') {
-          final e = m[2] as Map<String, dynamic>;
-          all[e['id'] as String] = e;
-        }
-        if (m[0] == 'EOSE') { ws.close(); c.complete(); }
-      }, onError: (_) { if (!c.isCompleted) c.complete(); },
-         onDone: () { if (!c.isCompleted) c.complete(); });
+      ws.listen(
+        (d) {
+          final m = jsonDecode(d as String) as List;
+          if (m[0] == 'EVENT') {
+            final e = m[2] as Map<String, dynamic>;
+            all[e['id'] as String] = e;
+          }
+          if (m[0] == 'EOSE') {
+            ws.close();
+            c.complete();
+          }
+        },
+        onError: (_) {
+          if (!c.isCompleted) c.complete();
+        },
+        onDone: () {
+          if (!c.isCompleted) c.complete();
+        },
+      );
       ws.add(reqJson);
       await c.future.timeout(const Duration(seconds: 5));
       log('  QRY $url → ${all.length} events (${sw.elapsedMilliseconds}ms)');

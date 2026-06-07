@@ -1,5 +1,6 @@
 /// This is copied from Cargokit (which is the official way to use it currently)
 /// Details: https://fzyzcjy.github.io/flutter_rust_bridge/manual/integrate/builtin
+library;
 
 import 'dart:io';
 
@@ -24,16 +25,19 @@ class BuildCMake {
     }
 
     final environment = BuildEnvironment.fromEnvironment(isAndroid: false);
-    final provider =
-        ArtifactProvider(environment: environment, userOptions: userOptions);
+    final provider = ArtifactProvider(
+      environment: environment,
+      userOptions: userOptions,
+    );
     final artifacts = await provider.getArtifacts([target]);
 
     final libs = artifacts[target]!;
 
     for (final lib in libs) {
       if (lib.type == AritifactType.dylib) {
-        File(lib.path)
-            .copySync(path.join(Environment.outputDir, lib.finalFileName));
+        File(
+          lib.path,
+        ).copySync(path.join(Environment.outputDir, lib.finalFileName));
       }
     }
   }

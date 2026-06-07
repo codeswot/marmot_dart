@@ -15,10 +15,10 @@ class ChatMessage {
     required this.sender,
     required this.isMine,
     required this.text,
-  })  : media = null,
-        status = FileStatus.sent,
-        savedPath = null,
-        errorMsg = null;
+  }) : media = null,
+       status = FileStatus.sent,
+       savedPath = null,
+       errorMsg = null;
 
   ChatMessage.file({
     required this.sender,

@@ -23,6 +23,7 @@ export 'src/rust/api/groups.dart'
         MemberChangeResult,
         GroupMetadataUpdate,
         GroupImagePrepared;
-export 'src/rust/api/messages.dart' show MarmotMessage, MarmotMediaRef, MessageListParams;
+export 'src/rust/api/messages.dart'
+    show MarmotMessage, MarmotMediaRef, MessageListParams;
 export 'src/rust/api/media.dart' show EncryptedMediaOutput, MediaRefInput;
 export 'src/rust/api/error.dart' show MarmotError;

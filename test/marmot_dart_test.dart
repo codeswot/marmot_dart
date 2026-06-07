@@ -151,6 +151,21 @@ void main() {
       expect(g.imageKey, ub([3, 4]));
       expect(g.imageNonce, ub([5, 6]));
     });
+
+    test('last message fields default to null', () {
+      final g = MarmotGroup(
+        id: 'id1',
+        nostrGroupId: 'ng1',
+        name: 'G',
+        description: '',
+        relayUrls: [],
+        adminNpubs: [],
+        memberCount: 1,
+      );
+      expect(g.lastMessageId, isNull);
+      expect(g.lastMessageAtSecs, isNull);
+      expect(g.lastMessageProcessedAtSecs, isNull);
+    });
   });
 
   // ── MarmotMember ─────────────────────────────────────────────────────────

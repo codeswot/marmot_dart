@@ -41,6 +41,9 @@ pub struct MarmotGroup {
     pub image_hash: Option<Vec<u8>>,
     pub image_key: Option<Vec<u8>>,
     pub image_nonce: Option<Vec<u8>>,
+    pub last_message_id: Option<String>,
+    pub last_message_at_secs: Option<i64>,
+    pub last_message_processed_at_secs: Option<i64>,
 }
 
 pub struct GroupMetadataUpdate {
@@ -314,6 +317,48 @@ pub fn clear_group_image(db_path: String, group_id: String) -> Result<String, Ma
     })
 }
 
+/// Remove self from a group via MLS. Returns the commit event JSON to publish
+/// to the group's relays. Admins must self-demote before leaving.
+pub fn leave_group(
+    db_path: String,
+    group_id: String,
+) -> Result<MemberChangeResult, MarmotError> {
+    let gid = group_id_from_hex(&group_id)?;
+    state::with_state(&db_path, |s| {
+        let result = s.mdk.leave_group(&gid)?;
+        s.mdk.merge_pending_commit(&gid)?;
+        Ok(member_change_dto(result))
+    })
+}
+
+/// Delete all locally stored messages for a group. The group remains active and
+/// can receive new messages. Returns the number of messages deleted.
+/// Local-only — no events published.
+pub fn delete_messages_for_group(
+    db_path: String,
+    group_id: String,
+) -> Result<u64, MarmotError> {
+    let gid = group_id_from_hex(&group_id)?;
+    state::with_state(&db_path, |s| {
+        s.mdk
+            .delete_messages_for_group(&gid)
+            .map(|n| n as u64)
+            .map_err(|e| MarmotError::Mdk(e.to_string()))
+    })
+}
+
+/// Delete ALL local state for a group: messages, MLS tree, keys, relays,
+/// proposals, snapshots. The group cannot receive new messages afterward.
+/// Call [leave_group] first to notify other members. Idempotent.
+/// Local-only — no events published.
+pub fn delete_group(db_path: String, group_id: String) -> Result<(), MarmotError> {
+    let gid = group_id_from_hex(&group_id)?;
+    state::with_state(&db_path, |s| {
+        s.mdk.delete_group(&gid)?;
+        Ok(())
+    })
+}
+
 pub fn decrypt_group_image_blob(
     encrypted_data: Vec<u8>,
     image_hash: Vec<u8>,
@@ -353,6 +398,11 @@ pub(crate) fn group_dto<S: MdkStorageProvider>(
         image_hash: group.image_hash.map(|h| h.to_vec()),
         image_key: group.image_key.as_ref().map(|k| k.as_ref().to_vec()),
         image_nonce: group.image_nonce.as_ref().map(|n| n.as_ref().to_vec()),
+        last_message_id: group.last_message_id.map(|id| id.to_hex()),
+        last_message_at_secs: group.last_message_at.map(|t| t.as_secs() as i64),
+        last_message_processed_at_secs: group
+            .last_message_processed_at
+            .map(|t| t.as_secs() as i64),
     })
 }
 

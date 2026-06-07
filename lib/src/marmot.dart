@@ -197,6 +197,22 @@ class Marmot {
   Future<String> clearGroupImage(String groupId) =>
       groups.clearGroupImage(dbPath: dbPath, groupId: groupId);
 
+  /// Remove self from a group via MLS. Returns the commit event JSON to publish.
+  /// Admins must self-demote before leaving.
+  Future<groups.MemberChangeResult> leaveGroup(String groupId) =>
+      groups.leaveGroup(dbPath: dbPath, groupId: groupId);
+
+  /// Delete all locally stored messages for a group. The group remains active.
+  /// Local-only — no events published. Returns number of messages deleted.
+  Future<BigInt> deleteMessagesForGroup(String groupId) =>
+      groups.deleteMessagesForGroup(dbPath: dbPath, groupId: groupId);
+
+  /// Delete ALL local state for a group: messages, MLS tree, keys, everything.
+  /// After this the group cannot receive new messages. Call [leaveGroup] first
+  /// to notify other members. Idempotent. Local-only — no events published.
+  Future<void> deleteGroup(String groupId) =>
+      groups.deleteGroup(dbPath: dbPath, groupId: groupId);
+
   /// Decrypt a downloaded group-image blob using the hash/key/nonce from
   /// [MarmotGroup.imageHash] / [MarmotGroup.imageKey] / [MarmotGroup.imageNonce].
   static Future<Uint8List> decryptGroupImage({

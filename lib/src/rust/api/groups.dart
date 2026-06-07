@@ -113,6 +113,37 @@ Future<String> clearGroupImage({
   groupId: groupId,
 );
 
+/// Remove self from a group via MLS. Returns the commit event JSON to publish
+/// to the group's relays. Admins must self-demote before leaving.
+Future<MemberChangeResult> leaveGroup({
+  required String dbPath,
+  required String groupId,
+}) => RustLib.instance.api.crateApiGroupsLeaveGroup(
+  dbPath: dbPath,
+  groupId: groupId,
+);
+
+/// Delete all locally stored messages for a group. The group remains active and
+/// can receive new messages. Returns the number of messages deleted.
+/// Local-only — no events published.
+Future<BigInt> deleteMessagesForGroup({
+  required String dbPath,
+  required String groupId,
+}) => RustLib.instance.api.crateApiGroupsDeleteMessagesForGroup(
+  dbPath: dbPath,
+  groupId: groupId,
+);
+
+/// Delete ALL local state for a group: messages, MLS tree, keys, relays,
+/// proposals, snapshots. The group cannot receive new messages afterward.
+/// Call [leave_group] first to notify other members. Idempotent.
+/// Local-only — no events published.
+Future<void> deleteGroup({required String dbPath, required String groupId}) =>
+    RustLib.instance.api.crateApiGroupsDeleteGroup(
+      dbPath: dbPath,
+      groupId: groupId,
+    );
+
 Future<Uint8List> decryptGroupImageBlob({
   required List<int> encryptedData,
   required List<int> imageHash,
@@ -279,6 +310,9 @@ class MarmotGroup {
   final Uint8List? imageHash;
   final Uint8List? imageKey;
   final Uint8List? imageNonce;
+  final String? lastMessageId;
+  final PlatformInt64? lastMessageAtSecs;
+  final PlatformInt64? lastMessageProcessedAtSecs;
 
   const MarmotGroup({
     required this.id,
@@ -291,6 +325,9 @@ class MarmotGroup {
     this.imageHash,
     this.imageKey,
     this.imageNonce,
+    this.lastMessageId,
+    this.lastMessageAtSecs,
+    this.lastMessageProcessedAtSecs,
   });
 
   @override
@@ -304,7 +341,10 @@ class MarmotGroup {
       memberCount.hashCode ^
       imageHash.hashCode ^
       imageKey.hashCode ^
-      imageNonce.hashCode;
+      imageNonce.hashCode ^
+      lastMessageId.hashCode ^
+      lastMessageAtSecs.hashCode ^
+      lastMessageProcessedAtSecs.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -320,7 +360,10 @@ class MarmotGroup {
           memberCount == other.memberCount &&
           imageHash == other.imageHash &&
           imageKey == other.imageKey &&
-          imageNonce == other.imageNonce;
+          imageNonce == other.imageNonce &&
+          lastMessageId == other.lastMessageId &&
+          lastMessageAtSecs == other.lastMessageAtSecs &&
+          lastMessageProcessedAtSecs == other.lastMessageProcessedAtSecs;
 }
 
 class MarmotMember {

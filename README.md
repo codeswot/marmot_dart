@@ -6,16 +6,6 @@ End-to-end encrypted group messaging for Flutter, built on the [Marmot protocol]
 
 > **Status:** early development, built on MDK `0.8`. Identity, key packages, groups, messages, and MIP-04 media are implemented.
 
-## Platform support
-
-| Platform | Support |
-|----------|---------|
-| Android  | Yes     |
-| iOS      | Yes     |
-| macOS    | Yes     |
-| Linux    | Yes     |
-| Windows  | Yes     |
-
 ## Install
 
 ```sh
@@ -225,15 +215,15 @@ final eventJson = await marmot.sendStructured(npub, group.id, {
 
 ```dart
 final MarmotMessage? msg = await marmot.processIncoming(nostrEventJson);
-// msg.text         — set for plain text messages
+// msg.text         — set for plain text, null for structured
 // msg.payloadJson  — set when content-type tag is present (structured)
-// msg.contentType  — the content-type tag value
+// msg.contentType  — the content-type tag value (e.g. "application/json")
 // msg.senderNpub   — author npub
-// msg.timestampSecs
-// msg.media        — List<MarmotMediaRef>, MIP-04 attachments (see below)
+// msg.timestampSecs — sender timestamp
+// msg.media        — List<MarmotMediaRef>, MIP-04 attachments
 ```
 
-**Retrieving stored messages.** All processed messages are persisted in the encrypted database.
+**Retrieving stored messages.** `sendMessage` and `processIncoming` both persist to the encrypted local DB. Use these to read them back:
 
 ```dart
 // List messages, newest first
@@ -243,15 +233,23 @@ final messages = await marmot.getMessages(group.id);
 final page2 = await marmot.getMessages(group.id,
   params: MessageListParams(limit: 50, offset: 50));
 
-// Sort by local reception time
+// Sort by local reception time instead of sender timestamp
 final byArrival = await marmot.getMessages(group.id,
   params: MessageListParams(sortByProcessedAt: true));
 
-// Single message by Nostr event ID
+// Single message by Nostr event ID hex
 final msg = await marmot.getMessage(group.id, eventIdHex);
 
-// Most recent message
+// Most recent message (useful for group list previews)
 final last = await marmot.getLastMessage(group.id);
+```
+
+Each `MarmotGroup` also carries `lastMessageId`, `lastMessageAtSecs`, and `lastMessageProcessedAtSecs` — updated automatically on every send or receive. Sort your group list by recent activity without fetching messages:
+
+```dart
+final groups = await marmot.listGroups();
+groups.sort((a, b) =>
+    (b.lastMessageAtSecs ?? 0).compareTo(a.lastMessageAtSecs ?? 0));
 ```
 
 ### Media (MIP-04)
@@ -318,7 +316,7 @@ One instance per database. All operations that need the encrypted store are inst
 
 **Factories (static):** `Marmot.memory()`, `Marmot.sqlite()`, `Marmot.sqliteWithKey()`, `Marmot.initKeyringStore()`
 
-**Groups:** `createGroup`, `processWelcome`, `getPendingWelcomes`, `acceptWelcome`, `listGroups`, `getMembers`, `addMember`, `removeMember`, `updateGroupMetadata`, `prepareGroupImage` (static), `setGroupImage`, `clearGroupImage`, `decryptGroupImage` (static)
+**Groups:** `createGroup`, `processWelcome`, `getPendingWelcomes`, `acceptWelcome`, `listGroups`, `getMembers`, `addMember`, `removeMember`, `updateGroupMetadata`, `prepareGroupImage` (static), `setGroupImage`, `clearGroupImage`, `decryptGroupImage` (static), `leaveGroup`, `deleteMessagesForGroup`, `deleteGroup`
 
 **Key packages:** `createKeyPackage`, `createSignedKeyPackage`
 

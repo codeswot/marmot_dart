@@ -1,13 +1,21 @@
-## 0.0.2
+## 0.0.3
 
 - `buildUnsignedRumor` now uses named parameters with optional `contentType` for structured (JSON) payloads. The receiver's `MarmotMessage.payloadJson` is populated when a content-type tag is present.
 - New `Marmot.sendStructured(npub, groupId, payload)` — one-call convenience for sending JSON messages.
-- New `Marmot.getMessages(groupId, {params})` — paginated retrieval of stored messages.
+- New `Marmot.getMessages(groupId, {params})` — paginated retrieval of stored messages from the encrypted local DB.
 - New `Marmot.getMessage(groupId, eventIdHex)` — single message lookup by Nostr event ID.
 - New `Marmot.getLastMessage(groupId)` — most recent message in a group.
 - New `MessageListParams` model (limit, offset, sortByProcessedAt).
-- Comprehensive test suite: 22 Rust tests (identity, key packages, groups, messages, media roundtrip) and 41 Dart model tests.
-- Codebase cleanup: consolidated redundant wrapper files into `marmot.dart`.
+- New `Marmot.leaveGroup(groupId)` — remove self from a group via MLS. Returns commit event to publish.
+- New `Marmot.deleteMessagesForGroup(groupId)` — delete all locally stored messages for a group. Group stays active.
+- New `Marmot.deleteGroup(groupId)` — delete all local state for a group. Idempotent, local-only.
+- New `MarmotGroup` fields: `lastMessageId`, `lastMessageAtSecs`, `lastMessageProcessedAtSecs` — updated automatically on every send/receive.
+- Comprehensive test suite: 22 Rust tests (identity, key packages, groups, messages, media roundtrip) and 42 Dart model tests.
+- Codebase cleanup: consolidated redundant wrapper files; `buildUnsignedRumor` and `signEvent` now top-level in `marmot.dart`.
+
+## 0.0.2
+
+- Bumped homepage and repository URLs.
 
 ## 0.0.1
 

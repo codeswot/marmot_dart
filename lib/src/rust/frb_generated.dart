@@ -73,7 +73,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => -433551688;
+  int get rustContentHash => -1594408446;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -115,6 +115,7 @@ abstract class RustLibApi extends BaseApi {
   Future<String> crateApiMessagesBuildUnsignedRumor({
     required String npub,
     required String content,
+    String? contentType,
   });
 
   Future<String> crateApiGroupsClearGroupImage({
@@ -164,9 +165,26 @@ abstract class RustLibApi extends BaseApi {
 
   Future<NostrKeypair> crateApiIdentityGenerate();
 
+  Future<MarmotMessage?> crateApiMessagesGetLastMessage({
+    required String dbPath,
+    required String groupId,
+  });
+
   Future<List<MarmotMember>> crateApiGroupsGetMembers({
     required String dbPath,
     required String groupId,
+  });
+
+  Future<MarmotMessage?> crateApiMessagesGetMessage({
+    required String dbPath,
+    required String groupId,
+    required String eventIdHex,
+  });
+
+  Future<List<MarmotMessage>> crateApiMessagesGetMessages({
+    required String dbPath,
+    required String groupId,
+    MessageListParams? params,
   });
 
   Future<List<PendingWelcome>> crateApiGroupsGetPendingWelcomes({
@@ -411,6 +429,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Future<String> crateApiMessagesBuildUnsignedRumor({
     required String npub,
     required String content,
+    String? contentType,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -418,6 +437,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(npub, serializer);
           sse_encode_String(content, serializer);
+          sse_encode_opt_String(contentType, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -430,7 +450,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_marmot_error,
         ),
         constMeta: kCrateApiMessagesBuildUnsignedRumorConstMeta,
-        argValues: [npub, content],
+        argValues: [npub, content, contentType],
         apiImpl: this,
       ),
     );
@@ -439,7 +459,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiMessagesBuildUnsignedRumorConstMeta =>
       const TaskConstMeta(
         debugName: "build_unsigned_rumor",
-        argNames: ["npub", "content"],
+        argNames: ["npub", "content", "contentType"],
       );
 
   @override
@@ -731,7 +751,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "generate", argNames: []);
 
   @override
-  Future<List<MarmotMember>> crateApiGroupsGetMembers({
+  Future<MarmotMessage?> crateApiMessagesGetLastMessage({
     required String dbPath,
     required String groupId,
   }) {
@@ -745,6 +765,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             generalizedFrbRustBinding,
             serializer,
             funcId: 13,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_box_autoadd_marmot_message,
+          decodeErrorData: sse_decode_marmot_error,
+        ),
+        constMeta: kCrateApiMessagesGetLastMessageConstMeta,
+        argValues: [dbPath, groupId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMessagesGetLastMessageConstMeta =>
+      const TaskConstMeta(
+        debugName: "get_last_message",
+        argNames: ["dbPath", "groupId"],
+      );
+
+  @override
+  Future<List<MarmotMember>> crateApiGroupsGetMembers({
+    required String dbPath,
+    required String groupId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(dbPath, serializer);
+          sse_encode_String(groupId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 14,
             port: port_,
           );
         },
@@ -765,6 +820,79 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<MarmotMessage?> crateApiMessagesGetMessage({
+    required String dbPath,
+    required String groupId,
+    required String eventIdHex,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(dbPath, serializer);
+          sse_encode_String(groupId, serializer);
+          sse_encode_String(eventIdHex, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 15,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_box_autoadd_marmot_message,
+          decodeErrorData: sse_decode_marmot_error,
+        ),
+        constMeta: kCrateApiMessagesGetMessageConstMeta,
+        argValues: [dbPath, groupId, eventIdHex],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMessagesGetMessageConstMeta => const TaskConstMeta(
+    debugName: "get_message",
+    argNames: ["dbPath", "groupId", "eventIdHex"],
+  );
+
+  @override
+  Future<List<MarmotMessage>> crateApiMessagesGetMessages({
+    required String dbPath,
+    required String groupId,
+    MessageListParams? params,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(dbPath, serializer);
+          sse_encode_String(groupId, serializer);
+          sse_encode_opt_box_autoadd_message_list_params(params, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 16,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_marmot_message,
+          decodeErrorData: sse_decode_marmot_error,
+        ),
+        constMeta: kCrateApiMessagesGetMessagesConstMeta,
+        argValues: [dbPath, groupId, params],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMessagesGetMessagesConstMeta =>
+      const TaskConstMeta(
+        debugName: "get_messages",
+        argNames: ["dbPath", "groupId", "params"],
+      );
+
+  @override
   Future<List<PendingWelcome>> crateApiGroupsGetPendingWelcomes({
     required String dbPath,
   }) {
@@ -776,7 +904,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 17,
             port: port_,
           );
         },
@@ -807,7 +935,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 18,
             port: port_,
           );
         },
@@ -834,7 +962,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 19,
             port: port_,
           );
         },
@@ -861,7 +989,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 20,
             port: port_,
           );
         },
@@ -893,7 +1021,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 21,
             port: port_,
           );
         },
@@ -923,7 +1051,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 22,
             port: port_,
           );
         },
@@ -951,7 +1079,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 23,
             port: port_,
           );
         },
@@ -983,7 +1111,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 24,
             port: port_,
           );
         },
@@ -1018,7 +1146,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 25,
             port: port_,
           );
         },
@@ -1055,7 +1183,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 26,
             port: port_,
           );
         },
@@ -1086,7 +1214,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 27,
             port: port_,
           );
         },
@@ -1123,7 +1251,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 25,
+            funcId: 28,
             port: port_,
           );
         },
@@ -1153,7 +1281,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 26,
+            funcId: 29,
             port: port_,
           );
         },
@@ -1187,7 +1315,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 27,
+            funcId: 30,
             port: port_,
           );
         },
@@ -1229,7 +1357,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 28,
+            funcId: 31,
             port: port_,
           );
         },
@@ -1278,7 +1406,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 29,
+            funcId: 32,
             port: port_,
           );
         },
@@ -1315,7 +1443,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 30,
+            funcId: 33,
             port: port_,
           );
         },
@@ -1346,7 +1474,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 31,
+            funcId: 34,
             port: port_,
           );
         },
@@ -1377,6 +1505,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool dco_decode_box_autoadd_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as bool;
+  }
+
+  @protected
   CreateGroupParams dco_decode_box_autoadd_create_group_params(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_create_group_params(raw);
@@ -1400,6 +1534,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MediaRefInput dco_decode_box_autoadd_media_ref_input(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_media_ref_input(raw);
+  }
+
+  @protected
+  MessageListParams dco_decode_box_autoadd_message_list_params(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_message_list_params(raw);
   }
 
   @protected
@@ -1547,6 +1687,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<MarmotMember> dco_decode_list_marmot_member(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_marmot_member).toList();
+  }
+
+  @protected
+  List<MarmotMessage> dco_decode_list_marmot_message(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_marmot_message).toList();
   }
 
   @protected
@@ -1701,6 +1847,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageListParams dco_decode_message_list_params(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return MessageListParams(
+      limit: dco_decode_opt_box_autoadd_u_32(arr[0]),
+      offset: dco_decode_opt_box_autoadd_u_32(arr[1]),
+      sortByProcessedAt: dco_decode_opt_box_autoadd_bool(arr[2]),
+    );
+  }
+
+  @protected
   NostrKeypair dco_decode_nostr_keypair(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -1720,9 +1879,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool? dco_decode_opt_box_autoadd_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_bool(raw);
+  }
+
+  @protected
   MarmotMessage? dco_decode_opt_box_autoadd_marmot_message(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_marmot_message(raw);
+  }
+
+  @protected
+  MessageListParams? dco_decode_opt_box_autoadd_message_list_params(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_message_list_params(raw);
   }
 
   @protected
@@ -1817,6 +1990,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_bool(deserializer));
+  }
+
+  @protected
   CreateGroupParams sse_decode_box_autoadd_create_group_params(
     SseDeserializer deserializer,
   ) {
@@ -1846,6 +2025,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_media_ref_input(deserializer));
+  }
+
+  @protected
+  MessageListParams sse_decode_box_autoadd_message_list_params(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_message_list_params(deserializer));
   }
 
   @protected
@@ -2065,6 +2252,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<MarmotMessage> sse_decode_list_marmot_message(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <MarmotMessage>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_marmot_message(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<PendingWelcome> sse_decode_list_pending_welcome(
     SseDeserializer deserializer,
   ) {
@@ -2251,6 +2452,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MessageListParams sse_decode_message_list_params(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_limit = sse_decode_opt_box_autoadd_u_32(deserializer);
+    var var_offset = sse_decode_opt_box_autoadd_u_32(deserializer);
+    var var_sortByProcessedAt = sse_decode_opt_box_autoadd_bool(deserializer);
+    return MessageListParams(
+      limit: var_limit,
+      offset: var_offset,
+      sortByProcessedAt: var_sortByProcessedAt,
+    );
+  }
+
+  @protected
   NostrKeypair sse_decode_nostr_keypair(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_npub = sse_decode_String(deserializer);
@@ -2275,6 +2491,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_bool(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   MarmotMessage? sse_decode_opt_box_autoadd_marmot_message(
     SseDeserializer deserializer,
   ) {
@@ -2282,6 +2509,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_marmot_message(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  MessageListParams? sse_decode_opt_box_autoadd_message_list_params(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_message_list_params(deserializer));
     } else {
       return null;
     }
@@ -2406,6 +2646,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_create_group_params(
     CreateGroupParams self,
     SseSerializer serializer,
@@ -2439,6 +2685,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_media_ref_input(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_message_list_params(
+    MessageListParams self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_message_list_params(self, serializer);
   }
 
   @protected
@@ -2607,6 +2862,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_marmot_message(
+    List<MarmotMessage> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_marmot_message(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_pending_welcome(
     List<PendingWelcome> self,
     SseSerializer serializer,
@@ -2757,6 +3024,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_message_list_params(
+    MessageListParams self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_box_autoadd_u_32(self.limit, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.offset, serializer);
+    sse_encode_opt_box_autoadd_bool(self.sortByProcessedAt, serializer);
+  }
+
+  @protected
   void sse_encode_nostr_keypair(NostrKeypair self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.npub, serializer);
@@ -2775,6 +3053,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_bool(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_box_autoadd_marmot_message(
     MarmotMessage? self,
     SseSerializer serializer,
@@ -2784,6 +3072,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_marmot_message(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_message_list_params(
+    MessageListParams? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_message_list_params(self, serializer);
     }
   }
 

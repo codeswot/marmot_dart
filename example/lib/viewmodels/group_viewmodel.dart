@@ -140,7 +140,7 @@ class GroupViewModel extends ChangeNotifier {
 
   Future<void> doSendMessage(String text) async {
     if (!device.hasIdentity || text.trim().isEmpty) return;
-    final rumor = await buildUnsignedRumor(device.npub, text);
+    final rumor = await buildUnsignedRumor(npub: device.npub, content: text);
     final ev = await device.marmot.sendMessage(rumor, group.id);
     await RelayService.publish(ev);
     messages.add(ChatMessage.text(sender: device.name, isMine: true, text: text));

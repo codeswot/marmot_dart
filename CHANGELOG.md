@@ -2,32 +2,69 @@
 
 Initial development release. Built on MDK `0.8` via flutter_rust_bridge `2.12`.
 
-### Architecture: Host-App-Managed Secrets (Whitenoise Pattern)
+### Storage
 
-The host Flutter app owns all secret storage. marmot_dart is a thin MDK wrapper.
+Three backends via `StorageConfig`:
 
-- **DB encryption key**: host supplies a 32-byte key via `StorageConfig.sqliteWithKey`.
-  Or use `StorageConfig.sqlite` for automatic keyring-managed keys (requires calling
-  `Marmot.initKeyringStore()` first).
-- **nsec**: host persists via `flutter_secure_storage` or equivalent. marmot_dart
-  only holds keys in-memory for the current session via `MarmotIdentity.importNsec`.
-
-### Three Storage Backends (`StorageConfig` enum)
-
-- `StorageConfig.memory` — in-memory storage (testing, requires `test-utils` feature)
-- `StorageConfig.sqlite(dbPath, serviceId, keyId)` — automatic keyring-managed encryption
+- `StorageConfig.memory` — in-memory storage (ephemeral, for testing)
+- `StorageConfig.sqlite(dbPath, serviceId, keyId)` — keyring-managed encryption
 - `StorageConfig.sqliteWithKey(dbPath, dbKey)` — host supplies 32-byte encryption key
 
-### API
+Call `Marmot.initKeyringStore()` once before using `.sqlite`.
 
-- **Init** — `Marmot.init(npub:, storage:)` with npub + storage config.
-  `Marmot.initKeyringStore()` for auto keyring mode.
-  `Marmot.hasIdentity()`.
-- **Identity** — `MarmotIdentity.generate`, `importNsec`, `validateNsec`, `current`,
-  `npubFromNsec`. In-memory only, host persists nsec.
-  `MarmotIdentity.clear()` clears in-memory keys.
-- **Key packages** — `MarmotKeyPackages.create` returns content + tags to publish.
-- **Groups** — `MarmotGroups.create`, `processWelcome`, `getPendingWelcomes`,
-  `acceptWelcome`, `list`, `getMembers`, `addMember`, `removeMember`.
-- **Messages** — `MarmotMessages.send`, `sendStructured`, `processIncoming`.
-- **Media (MIP-04)** — `MarmotMedia.encrypt` / `decrypt`. Enabled by default.
+### Identity (`MarmotIdentity`)
+
+- `generate()` — new Nostr keypair (nsec returned, host must persist)
+- `importFromNsec(nsec)` — import existing keypair
+- `validateNsec(nsec)` — check validity
+- `npubFromNsec(nsec)` — derive npub
+- `pubkeyHexFromNpub(npub)` — convert bech32 to hex
+
+Pure functions — no MDK state needed. Keys held in memory only for current session.
+
+### Key packages
+
+- `Marmot.createKeyPackage(npub, relayUrls)` — mint MLS key package, return pieces
+- `Marmot.createSignedKeyPackage(nsec, relayUrls)` — mint + sign a kind:30443 event
+- `signEvent(nsec, unsignedEventJson)` — top-level pure function
+
+### Groups
+
+Full MLS group lifecycle on `Marmot` instance:
+
+- `createGroup(creatorNpub, params)` — create group, return welcome rumors
+- `processWelcome(wrapperEventId, welcomeRumorJson)` — parse incoming welcome
+- `getPendingWelcomes()` — list unaccepted invites
+- `acceptWelcome(welcomeId)` — join a group
+- `listGroups()` — all groups for this identity
+- `getMembers(groupId)` — member list
+- `addMember(groupId, keyPackageEventJson)` — add member, return commit + welcome
+- `removeMember(groupId, npub)` — remove member, return commit
+- `updateGroupMetadata(groupId, {name, description, relayUrls, adminNpubs})` — edit MIP-01 metadata
+- `Marmot.prepareGroupImage(imageData, mimeType)` — encrypt group image (static)
+- `setGroupImage(groupId, {imageHash, imageKey, imageNonce, imageUploadKey})` — store image refs in metadata
+- `clearGroupImage(groupId)` — remove group image
+- `Marmot.decryptGroupImage({encryptedData, imageHash, imageKey, imageNonce})` — decrypt downloaded blob (static)
+
+### Messages
+
+- `buildUnsignedRumor({npub, content, contentType?})` — build unsigned kind-9 rumor (top-level, pure)
+- `sendMessage(unsignedRumorJson, groupId)` — encrypt rumor via MLS, return kind:445 event
+- `buildMediaRumor({npub, groupId, caption, url, originalHash, mimeType, filename, nonce, ...})` — build media rumor with imeta tag
+- `sendStructured(npub, groupId, payload)` — convenience for JSON payloads
+- `processIncoming(nostrEventJson)` — decrypt and apply incoming event
+- `getMessages(groupId, {params})` — list stored messages, paginated
+- `getMessage(groupId, eventIdHex)` — single message by event ID
+- `getLastMessage(groupId)` — most recent message
+
+### Media (MIP-04)
+
+- `encryptMedia(groupId, data, mimeType, filename)` — encrypt file for group
+- `decryptMedia(groupId, encryptedData, mediaRef)` — decrypt downloaded blob
+
+### Top-level exports
+
+- `buildUnsignedRumor` — pure function, no Marmot instance needed
+- `signEvent` — pure function, sign any Nostr event
+- `MarmotIdentity` — static identity helpers
+- Models: `StorageConfig`, `NostrKeypair`, `KeyPackageEventData`, `CreateGroupParams`, `GroupCreateResult`, `MarmotGroup`, `MarmotMember`, `PendingWelcome`, `MemberChangeResult`, `GroupMetadataUpdate`, `GroupImagePrepared`, `MarmotMessage`, `MarmotMediaRef`, `MessageListParams`, `EncryptedMediaOutput`, `MediaRefInput`, `MarmotError`

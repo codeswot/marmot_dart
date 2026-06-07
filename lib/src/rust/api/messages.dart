@@ -9,12 +9,17 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `message_dto`
 
+/// Build an unsigned kind-9 rumor. Pass [content_type] (e.g. "application/json")
+/// to tag the payload — the receiver will see it in [MarmotMessage.contentType] and
+/// [MarmotMessage.payloadJson] instead of [MarmotMessage.text].
 Future<String> buildUnsignedRumor({
   required String npub,
   required String content,
+  String? contentType,
 }) => RustLib.instance.api.crateApiMessagesBuildUnsignedRumor(
   npub: npub,
   content: content,
+  contentType: contentType,
 );
 
 Future<String> buildMediaRumor({
@@ -63,6 +68,37 @@ Future<MarmotMessage?> processIncoming({
 }) => RustLib.instance.api.crateApiMessagesProcessIncoming(
   dbPath: dbPath,
   nostrEventJson: nostrEventJson,
+);
+
+/// List messages for a group, newest first. Paginate with [MessageListParams].
+Future<List<MarmotMessage>> getMessages({
+  required String dbPath,
+  required String groupId,
+  MessageListParams? params,
+}) => RustLib.instance.api.crateApiMessagesGetMessages(
+  dbPath: dbPath,
+  groupId: groupId,
+  params: params,
+);
+
+/// Look up a single stored message by Nostr event ID hex.
+Future<MarmotMessage?> getMessage({
+  required String dbPath,
+  required String groupId,
+  required String eventIdHex,
+}) => RustLib.instance.api.crateApiMessagesGetMessage(
+  dbPath: dbPath,
+  groupId: groupId,
+  eventIdHex: eventIdHex,
+);
+
+/// Return the most recent message in a group, or None if empty.
+Future<MarmotMessage?> getLastMessage({
+  required String dbPath,
+  required String groupId,
+}) => RustLib.instance.api.crateApiMessagesGetLastMessage(
+  dbPath: dbPath,
+  groupId: groupId,
 );
 
 class MarmotMediaRef {
@@ -157,4 +193,25 @@ class MarmotMessage {
           payloadJson == other.payloadJson &&
           timestampSecs == other.timestampSecs &&
           media == other.media;
+}
+
+class MessageListParams {
+  final int? limit;
+  final int? offset;
+  final bool? sortByProcessedAt;
+
+  const MessageListParams({this.limit, this.offset, this.sortByProcessedAt});
+
+  @override
+  int get hashCode =>
+      limit.hashCode ^ offset.hashCode ^ sortByProcessedAt.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MessageListParams &&
+          runtimeType == other.runtimeType &&
+          limit == other.limit &&
+          offset == other.offset &&
+          sortByProcessedAt == other.sortByProcessedAt;
 }

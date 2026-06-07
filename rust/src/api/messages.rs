@@ -1,7 +1,8 @@
 use mdk_core::encrypted_media::EncryptedMediaUpload;
 use mdk_core::messages::MessageProcessingResult;
+use mdk_storage_traits::groups::{MessageSortOrder, Pagination};
 use mdk_storage_traits::messages::types::Message;
-use nostr::{Event, EventBuilder, JsonUtil, Kind, TagKind, UnsignedEvent};
+use nostr::{Event, EventBuilder, JsonUtil, Kind, Tag, TagKind, UnsignedEvent};
 
 use crate::api::error::MarmotError;
 use crate::convert::{group_id_from_hex, group_id_hex, parse_pubkey, pubkey_npub};
@@ -34,9 +35,20 @@ pub struct MarmotMediaRef {
     pub dimensions_height: Option<u32>,
 }
 
-pub fn build_unsigned_rumor(npub: String, content: String) -> Result<String, MarmotError> {
+/// Build an unsigned kind-9 rumor. Pass [content_type] (e.g. "application/json")
+/// to tag the payload — the receiver will see it in [MarmotMessage.contentType] and
+/// [MarmotMessage.payloadJson] instead of [MarmotMessage.text].
+pub fn build_unsigned_rumor(
+    npub: String,
+    content: String,
+    content_type: Option<String>,
+) -> Result<String, MarmotError> {
     let pubkey = parse_pubkey(&npub)?;
-    let rumor = EventBuilder::new(Kind::Custom(GROUP_MESSAGE_KIND), content).build(pubkey);
+    let mut builder = EventBuilder::new(Kind::Custom(GROUP_MESSAGE_KIND), content);
+    if let Some(ct) = content_type {
+        builder = builder.tag(Tag::parse(["content-type", &ct]).map_err(|e| MarmotError::InvalidEvent(e.to_string()))?);
+    }
+    let rumor = builder.build(pubkey);
     Ok(rumor.as_json())
 }
 
@@ -137,6 +149,130 @@ pub fn process_incoming(
             Ok(Some(message_dto(&message, media)?))
         }
         _ => Ok(None),
+    })
+}
+
+pub struct MessageListParams {
+    pub limit: Option<u32>,
+    pub offset: Option<u32>,
+    pub sort_by_processed_at: Option<bool>,
+}
+
+/// List messages for a group, newest first. Paginate with [MessageListParams].
+pub fn get_messages(
+    db_path: String,
+    group_id: String,
+    params: Option<MessageListParams>,
+) -> Result<Vec<MarmotMessage>, MarmotError> {
+    let gid = group_id_from_hex(&group_id)?;
+    state::with_state(&db_path, |s| {
+        let pagination = params
+            .map(|p| {
+                let sort_order = if p.sort_by_processed_at.unwrap_or(false) {
+                    MessageSortOrder::ProcessedAtFirst
+                } else {
+                    MessageSortOrder::CreatedAtFirst
+                };
+                Pagination::with_sort_order(
+                    p.limit.map(|l| l as usize),
+                    p.offset.map(|o| o as usize),
+                    sort_order,
+                )
+            })
+            .unwrap_or_default();
+        let messages = s.mdk.get_messages(&gid, Some(pagination))?;
+        messages
+            .iter()
+            .map(|m| {
+                let manager = s.mdk.media_manager(m.mls_group_id.clone());
+                let media: Vec<MarmotMediaRef> = m
+                    .tags
+                    .iter()
+                    .filter(|t| t.kind() == TagKind::Custom(IMETA_TAG.into()))
+                    .filter_map(|t| manager.parse_imeta_tag(t).ok())
+                    .map(|r| MarmotMediaRef {
+                        url: r.url,
+                        original_hash: r.original_hash.to_vec(),
+                        mime_type: r.mime_type,
+                        filename: r.filename,
+                        scheme_version: r.scheme_version,
+                        nonce: r.nonce.to_vec(),
+                        dimensions_width: r.dimensions.map(|d| d.0),
+                        dimensions_height: r.dimensions.map(|d| d.1),
+                    })
+                    .collect();
+                message_dto(m, media)
+            })
+            .collect()
+    })
+}
+
+/// Look up a single stored message by Nostr event ID hex.
+pub fn get_message(
+    db_path: String,
+    group_id: String,
+    event_id_hex: String,
+) -> Result<Option<MarmotMessage>, MarmotError> {
+    let gid = group_id_from_hex(&group_id)?;
+    let event_id = nostr::EventId::from_hex(&event_id_hex)
+        .map_err(|e| MarmotError::InvalidEvent(e.to_string()))?;
+    state::with_state(&db_path, |s| {
+        match s.mdk.get_message(&gid, &event_id)? {
+            Some(m) => {
+                let manager = s.mdk.media_manager(m.mls_group_id.clone());
+                let media: Vec<MarmotMediaRef> = m
+                    .tags
+                    .iter()
+                    .filter(|t| t.kind() == TagKind::Custom(IMETA_TAG.into()))
+                    .filter_map(|t| manager.parse_imeta_tag(t).ok())
+                    .map(|r| MarmotMediaRef {
+                        url: r.url,
+                        original_hash: r.original_hash.to_vec(),
+                        mime_type: r.mime_type,
+                        filename: r.filename,
+                        scheme_version: r.scheme_version,
+                        nonce: r.nonce.to_vec(),
+                        dimensions_width: r.dimensions.map(|d| d.0),
+                        dimensions_height: r.dimensions.map(|d| d.1),
+                    })
+                    .collect();
+                Ok(Some(message_dto(&m, media)?))
+            }
+            None => Ok(None),
+        }
+    })
+}
+
+/// Return the most recent message in a group, or None if empty.
+pub fn get_last_message(
+    db_path: String,
+    group_id: String,
+) -> Result<Option<MarmotMessage>, MarmotError> {
+    let gid = group_id_from_hex(&group_id)?;
+    state::with_state(&db_path, |s| {
+        match s.mdk.get_last_message(&gid, MessageSortOrder::CreatedAtFirst)? {
+            Some(m) => {
+                let manager = s.mdk.media_manager(m.mls_group_id.clone());
+                let media: Vec<MarmotMediaRef> = m
+                    .tags
+                    .iter()
+                    .filter(|t| t.kind() == TagKind::Custom(IMETA_TAG.into()))
+                    .filter_map(|t| manager.parse_imeta_tag(t).ok())
+                    .map(|r| MarmotMediaRef {
+                        url: r.url,
+                        original_hash: r.original_hash.to_vec(),
+                        mime_type: r.mime_type,
+                        filename: r.filename,
+                        scheme_version: r.scheme_version,
+                        nonce: r.nonce.to_vec(),
+                        dimensions_width: r.dimensions.map(|d| d.0),
+                        dimensions_height: r.dimensions.map(|d| d.1),
+                    })
+                    .collect();
+                Ok(Some(message_dto(&m, media)?))
+            }
+            None => Ok(None),
+        }
     })
 }
 

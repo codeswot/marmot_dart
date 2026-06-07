@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'rust/api/init.dart' as init;
@@ -7,6 +8,32 @@ import 'rust/api/key_packages.dart' as key_packages;
 import 'rust/api/media.dart' as media;
 import 'rust/state.dart';
 import '_ensure.dart';
+
+/// Build an unsigned kind-9 group-message rumor. A pure function — no
+/// [Marmot] instance needed. Use [Marmot.sendMessage] to encrypt it.
+///
+/// Set [contentType] (e.g. `"application/json"`) for structured payloads —
+/// the receiver's [MarmotMessage] will populate [MarmotMessage.payloadJson]
+/// instead of [MarmotMessage.text].
+Future<String> buildUnsignedRumor({
+  required String npub,
+  required String content,
+  String? contentType,
+}) async {
+  await ensureNativeLibrary();
+  return messages.buildUnsignedRumor(
+    npub: npub,
+    content: content,
+    contentType: contentType,
+  );
+}
+
+/// Sign an unsigned Nostr event JSON with an nsec. A pure function — no
+/// [Marmot] instance needed. Returns the signed event JSON.
+Future<String> signEvent(String nsec, String unsignedEventJson) async {
+  await ensureNativeLibrary();
+  return key_packages.signEvent(nsec: nsec, unsignedEventJson: unsignedEventJson);
+}
 
 /// Entry point to the marmot_dart API.
 ///
@@ -248,11 +275,52 @@ class Marmot {
     dimensionsHeight: dimensionsHeight,
   );
 
+  /// Convenience: build a structured rumor with [contentType] "application/json",
+  /// encrypt it, and return the signed kind:445 event JSON to publish.
+  /// Equivalent to [buildUnsignedRumor] + [sendMessage].
+  Future<String> sendStructured(
+    String npub,
+    String groupId,
+    Map<String, dynamic> payload,
+  ) async {
+    final rumor = await messages.buildUnsignedRumor(
+      npub: npub,
+      content: jsonEncode(payload),
+      contentType: 'application/json',
+    );
+    return messages.send(
+      dbPath: dbPath,
+      unsignedRumorJson: rumor,
+      groupId: groupId,
+    );
+  }
+
   /// Decrypt and apply an incoming Nostr event. Returns the decoded message
   /// (including any [MarmotMessage.media]) for application messages, or null for
   /// non-application events (e.g. commits, which are still applied).
   Future<messages.MarmotMessage?> processIncoming(String nostrEventJson) =>
       messages.processIncoming(dbPath: dbPath, nostrEventJson: nostrEventJson);
+
+  /// List stored messages for a group, newest first. Paginate with
+  /// [MessageListParams].
+  Future<List<messages.MarmotMessage>> getMessages(
+    String groupId, {
+    messages.MessageListParams? params,
+  }) => messages.getMessages(dbPath: dbPath, groupId: groupId, params: params);
+
+  /// Look up a single stored message by its Nostr event ID hex.
+  Future<messages.MarmotMessage?> getMessage(
+    String groupId,
+    String eventIdHex,
+  ) => messages.getMessage(
+    dbPath: dbPath,
+    groupId: groupId,
+    eventIdHex: eventIdHex,
+  );
+
+  /// Return the most recent message in a group, or null if empty.
+  Future<messages.MarmotMessage?> getLastMessage(String groupId) =>
+      messages.getLastMessage(dbPath: dbPath, groupId: groupId);
 
   // ---------------------------------------------------------------------------
   // Media

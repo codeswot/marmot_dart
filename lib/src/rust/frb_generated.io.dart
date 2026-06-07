@@ -32,6 +32,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  bool dco_decode_box_autoadd_bool(dynamic raw);
+
+  @protected
   CreateGroupParams dco_decode_box_autoadd_create_group_params(dynamic raw);
 
   @protected
@@ -42,6 +45,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MediaRefInput dco_decode_box_autoadd_media_ref_input(dynamic raw);
+
+  @protected
+  MessageListParams dco_decode_box_autoadd_message_list_params(dynamic raw);
 
   @protected
   StorageConfig dco_decode_box_autoadd_storage_config(dynamic raw);
@@ -86,6 +92,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<MarmotMember> dco_decode_list_marmot_member(dynamic raw);
 
   @protected
+  List<MarmotMessage> dco_decode_list_marmot_message(dynamic raw);
+
+  @protected
   List<PendingWelcome> dco_decode_list_pending_welcome(dynamic raw);
 
   @protected
@@ -116,13 +125,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MemberChangeResult dco_decode_member_change_result(dynamic raw);
 
   @protected
+  MessageListParams dco_decode_message_list_params(dynamic raw);
+
+  @protected
   NostrKeypair dco_decode_nostr_keypair(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+
+  @protected
   MarmotMessage? dco_decode_opt_box_autoadd_marmot_message(dynamic raw);
+
+  @protected
+  MessageListParams? dco_decode_opt_box_autoadd_message_list_params(
+    dynamic raw,
+  );
 
   @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
@@ -158,6 +178,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
   CreateGroupParams sse_decode_box_autoadd_create_group_params(
     SseDeserializer deserializer,
   );
@@ -174,6 +197,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MediaRefInput sse_decode_box_autoadd_media_ref_input(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MessageListParams sse_decode_box_autoadd_message_list_params(
     SseDeserializer deserializer,
   );
 
@@ -238,6 +266,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<MarmotMessage> sse_decode_list_marmot_message(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<PendingWelcome> sse_decode_list_pending_welcome(
     SseDeserializer deserializer,
   );
@@ -272,13 +305,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  MessageListParams sse_decode_message_list_params(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   NostrKeypair sse_decode_nostr_keypair(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
+  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
   MarmotMessage? sse_decode_opt_box_autoadd_marmot_message(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MessageListParams? sse_decode_opt_box_autoadd_message_list_params(
     SseDeserializer deserializer,
   );
 
@@ -319,6 +365,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_create_group_params(
     CreateGroupParams self,
     SseSerializer serializer,
@@ -339,6 +388,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_media_ref_input(
     MediaRefInput self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_message_list_params(
+    MessageListParams self,
     SseSerializer serializer,
   );
 
@@ -418,6 +473,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_marmot_message(
+    List<MarmotMessage> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_pending_welcome(
     List<PendingWelcome> self,
     SseSerializer serializer,
@@ -460,14 +521,29 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_message_list_params(
+    MessageListParams self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_nostr_keypair(NostrKeypair self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+
+  @protected
   void sse_encode_opt_box_autoadd_marmot_message(
     MarmotMessage? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_message_list_params(
+    MessageListParams? self,
     SseSerializer serializer,
   );
 

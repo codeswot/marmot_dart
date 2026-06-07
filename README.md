@@ -16,50 +16,33 @@ End-to-end encrypted group messaging for Flutter, built on the [Marmot protocol]
 | Linux    | Yes     |
 | Windows  | Yes     |
 
-## Features
-
-- **Identity** — generate or import Nostr keypairs (nsec/npub). Pure functions, no MDK state needed.
-- **Key packages** — create MLS key packages for group invitations (kind:30443 events).
-- **Groups** — full MLS group lifecycle: create, process welcomes, list, members, add/remove, edit metadata (name/description/relays/admins) and encrypted group image.
-- **Messages** — encrypt plain-text and structured group messages; decrypt incoming events.
-- **Media (MIP-04)** — encrypt files for group sharing and decrypt downloaded blobs with content hashing and blurhash/thumbhash metadata.
-
 ## Install
 
 ```sh
 flutter pub add marmot_dart
 ```
 
-This is an FFI plugin — it compiles and links the MDK Rust crate via `flutter_rust_bridge` and `cargokit`
+This is an FFI plugin — it compiles and links the MDK Rust crate via `flutter_rust_bridge` and `cargokit`.
 
 ## Usage
 
 ### Init
 
-Named factory constructors — one call creates an initialised `Marmot` instance.
+Three factory constructors — one call creates an initialised `Marmot` instance bound to a single encrypted database.
 
 ```dart
-import 'dart:math';
-import 'dart:typed_data';
 import 'package:marmot_dart/marmot_dart.dart';
 
 // Host-supplied 32-byte encryption key
-Uint8List random32Bytes() {
-  final r = Random.secure();
-  return Uint8List.fromList(List.generate(32, (_) => r.nextInt(256)));
-}
-
 final marmot = await Marmot.sqliteWithKey(
   dbPath: '/path/to/marmot.db',
-  dbKey: random32Bytes(),
+  dbKey: Uint8List.fromList(List.generate(32, (_) => 0x42)),
 );
 ```
 
-Three factory constructors:
-
 | Constructor | Backend |
 | ----------- | ------- |
-| `Marmot.memory(dbPath:)` | Ephemeral — for testing |
+| `Marmot.memory(dbPath:)` | In-memory — ephemeral, for testing |
 | `Marmot.sqlite(dbPath:, serviceId:, keyId:)` | Keyring-managed encryption |
 | `Marmot.sqliteWithKey(dbPath:, dbKey:)` | You supply a 32-byte encryption key |
 
@@ -85,7 +68,7 @@ final keypair = await MarmotIdentity.generate();
 // Import an existing keypair from nsec
 final imported = await MarmotIdentity.importFromNsec('nsec1...');
 
-// Validate
+// Validate an nsec string
 final valid = await MarmotIdentity.validateNsec('nsec1...');
 
 // Derive npub from nsec
@@ -104,7 +87,10 @@ Publish a key package so others can invite you to groups. Two paths:
 **Path 1 — Signed (simplest):** pass your `nsec`, get back a signed kind:30443 event ready to publish.
 
 ```dart
-final signedJson = await marmot.createSignedKeyPackage(nsec, ['wss://relay.example.com']);
+final signedJson = await marmot.createSignedKeyPackage(
+  nsec,
+  ['wss://relay.example.com'],
+);
 // signedJson is a signed Nostr event — publish it to your relay
 ```
 
@@ -112,14 +98,13 @@ final signedJson = await marmot.createSignedKeyPackage(nsec, ['wss://relay.examp
 
 ```dart
 final kp = await marmot.createKeyPackage(npub, ['wss://relay.example.com']);
+// kp.content     — base64-encoded MLS key package
+// kp.tags30443   — modern kind:30443 tags
+// kp.tags443     — legacy kind:443 tags
+// kp.dTag        — reuse this value when rotating
+// kp.hashRef     — content hash reference
 
-// Build the kind:30443 event with these pieces:
-//   content:   kp.content        — base64-encoded MLS key package
-//   tags:      kp.tags30443      — modern kind:30443 tags
-//              kp.tags443        — legacy kind:443 tags (optional)
-//   d-tag:     kp.dTag           — reuse this value when rotating
-
-// Sign the event yourself (or use signEvent as a convenience):
+// Build the kind:30443 event with these pieces, then sign:
 final signed = await signEvent(nsec, unsignedEventJson);
 ```
 
@@ -162,10 +147,7 @@ final change = await marmot.addMember(group.id, keyPackageEventJson);
 await marmot.removeMember(group.id, npub);
 ```
 
-**Editing group metadata.** Name, description, relays, and admins live in the
-MLS group's Marmot data extension (MIP-01). Updating any of them produces a
-kind:445 commit event — publish it to the group's relays. Other members apply
-the change when they `processIncoming` that event. Pass only the fields to change.
+**Editing group metadata.** Name, description, relays, and admins live in the MLS group's Marmot data extension (MIP-01). Updating any of them produces a kind:445 commit event — publish it to the group's relays. Other members apply the change when they `processIncoming` that event. Pass only the fields you want to change.
 
 ```dart
 final commitJson = await marmot.updateGroupMetadata(
@@ -178,16 +160,13 @@ final commitJson = await marmot.updateGroupMetadata(
 // Publish commitJson to the group's relays
 ```
 
-**Group image.** The image is encrypted (like MIP-04 media), uploaded to Blossom
-under a one-time derived keypair, and its hash/key/nonce stored in group
-metadata. Three steps to set, then publish the commit.
+**Group image.** The image is encrypted (like MIP-04 media), uploaded to Blossom under a one-time derived keypair, and its hash/key/nonce stored in group metadata.
 
 ```dart
 // 1. Encrypt the image
 final prep = await Marmot.prepareGroupImage(imageBytes, 'image/png');
 
 // 2. Upload prep.encryptedData to Blossom, authenticating with prep.uploadNsec
-//    (NOT the user's nsec). The blob is addressed by its hash.
 await uploadToBlossom(nsec: prep.uploadNsec, data: prep.encryptedData);
 
 // 3. Store the image in group metadata → kind:445 commit to publish
@@ -203,61 +182,94 @@ final commitJson = await marmot.setGroupImage(
 await marmot.clearGroupImage(group.id);
 ```
 
-Display it: each `MarmotGroup` carries `imageHash` / `imageKey` / `imageNonce`
-(null when unset). Download the blob by hash, then decrypt.
+Display it: each `MarmotGroup` carries `imageHash` / `imageKey` / `imageNonce` (null when unset). Download the blob by hash, then decrypt.
 
 ```dart
 if (group.imageHash != null) {
-  final blob = await downloadFromBlossom(group.imageHash!); // by hash
+  final blob = await downloadFromBlossom(group.imageHash!);
   final imageBytes = await Marmot.decryptGroupImage(
     encryptedData: blob,
     imageHash: group.imageHash!,
     imageKey: group.imageKey!,
     imageNonce: group.imageNonce!,
   );
-  // render imageBytes
 }
 ```
 
 ### Messages
 
+**Sending.**
+
 ```dart
-// Build an unsigned rumor, then encrypt for the group
-final rumorJson = await buildUnsignedRumor(npub, 'hello world');
-final eventJson = await marmot.sendMessage(rumorJson, group.id);
+// Plain text
+final rumor = await buildUnsignedRumor(npub: npub, content: 'hello world');
+final eventJson = await marmot.sendMessage(rumor, group.id);
 // Publish eventJson to the group's relays
 
-// Structured payloads — any JSON works as the rumor content
-final rumor2 = await buildUnsignedRumor(npub, jsonEncode({
-  'type': 'com.myapp.reaction',
-  'payload': {'emoji': '👍'},
-}));
-await marmot.sendMessage(rumor2, group.id);
+// Structured payloads (JSON)
+final rumor = await buildUnsignedRumor(
+  npub: npub,
+  content: jsonEncode({'type': 'com.myapp.reaction', 'emoji': '👍'}),
+  contentType: 'application/json',
+);
+await marmot.sendMessage(rumor, group.id);
 
-// Decrypt an incoming Nostr event
+// Shortcut for structured messages — same as the two calls above
+final eventJson = await marmot.sendStructured(npub, group.id, {
+  'type': 'com.myapp.reaction',
+  'emoji': '👍',
+});
+```
+
+**Receiving.**
+
+```dart
 final MarmotMessage? msg = await marmot.processIncoming(nostrEventJson);
-// msg.text, msg.senderNpub, msg.timestampSecs, msg.payloadJson, msg.contentType
-// msg.media — List<MarmotMediaRef>, the MIP-04 attachments (see below)
+// msg.text         — set for plain text messages
+// msg.payloadJson  — set when content-type tag is present (structured)
+// msg.contentType  — the content-type tag value
+// msg.senderNpub   — author npub
+// msg.timestampSecs
+// msg.media        — List<MarmotMediaRef>, MIP-04 attachments (see below)
+```
+
+**Retrieving stored messages.** All processed messages are persisted in the encrypted database.
+
+```dart
+// List messages, newest first
+final messages = await marmot.getMessages(group.id);
+
+// Paginate
+final page2 = await marmot.getMessages(group.id,
+  params: MessageListParams(limit: 50, offset: 50));
+
+// Sort by local reception time
+final byArrival = await marmot.getMessages(group.id,
+  params: MessageListParams(sortByProcessedAt: true));
+
+// Single message by Nostr event ID
+final msg = await marmot.getMessage(group.id, eventIdHex);
+
+// Most recent message
+final last = await marmot.getLastMessage(group.id);
 ```
 
 ### Media (MIP-04)
 
-Send: encrypt → upload the encrypted blob to Blossom → send a kind-9 message
-carrying a NIP-92 `imeta` tag describing the media. The `imeta` tag is built by
-the protocol's own serializer.
+Send: encrypt → upload encrypted blob to Blossom → send a kind-9 message carrying an `imeta` tag.
 
 ```dart
 // 1. Encrypt a file for group sharing
 final enc = await marmot.encryptMedia(group.id, fileBytes, 'image/png', 'photo.png');
 // enc.encryptedData  — Uint8List to upload to Blossom
-// enc.originalHash   — content hash (goes into imeta `x`)
-// enc.nonce          — encryption nonce (goes into imeta `n`)
-// enc.blurhash, enc.thumbhash, enc.dimensionsWidth, enc.dimensionsHeight — metadata
+// enc.originalHash   — content hash (imeta `x` tag)
+// enc.nonce          — encryption nonce (imeta `n` tag)
+// enc.blurhash, enc.thumbhash, enc.dimensionsWidth, enc.dimensionsHeight
 
-// 2. Upload enc.encryptedData to Blossom yourself → blob URL (<server>/<sha256>)
+// 2. Upload enc.encryptedData to Blossom yourself → blob URL
 final url = await uploadToBlossom(enc.encryptedData);
 
-// 3. Build the media message (caption optional) and send it
+// 3. Build the media message and send it
 final rumor = await marmot.buildMediaRumor(
   npub: npub,
   groupId: group.id,
@@ -273,11 +285,9 @@ final rumor = await marmot.buildMediaRumor(
   dimensionsHeight: enc.dimensionsHeight,
 );
 final eventJson = await marmot.sendMessage(rumor, group.id);
-// Publish eventJson to the group's relays
 ```
 
-Receive: `processIncoming` parses each `imeta` tag into `msg.media`. For each
-ref, download the blob from `ref.url` and decrypt.
+Receive: `processIncoming` parses each `imeta` tag into `msg.media`. For each ref, download the blob from `ref.url` and decrypt.
 
 ```dart
 final msg = await marmot.processIncoming(nostrEventJson);
@@ -286,12 +296,11 @@ for (final ref in msg!.media) {
   final decrypted = await marmot.decryptMedia(group.id, encryptedBlob, MediaRefInput(
     url: ref.url,
     originalHash: ref.originalHash,
-    mimeType: ref.mimeType,       // must match — it is part of the key derivation
-    filename: ref.filename,       // must match — it is part of the key derivation
+    mimeType: ref.mimeType,       // must match — part of key derivation
+    filename: ref.filename,       // must match — part of key derivation
     schemeVersion: ref.schemeVersion,
     nonce: ref.nonce,
   ));
-  // save `decrypted` to disk
 }
 ```
 
@@ -305,39 +314,32 @@ marmot.dispose(); // remove session, release resources
 
 ### `Marmot` class
 
-All operations live on the `Marmot` instance. `dbPath` is set once at construction.
+One instance per database. All operations that need the encrypted store are instance methods.
 
-**Factories:**
-`Marmot.memory()`, `Marmot.sqlite()`, `Marmot.sqliteWithKey()`, `Marmot.initKeyringStore()`
+**Factories (static):** `Marmot.memory()`, `Marmot.sqlite()`, `Marmot.sqliteWithKey()`, `Marmot.initKeyringStore()`
 
-**Groups:**
-`createGroup()`, `processWelcome()`, `getPendingWelcomes()`, `acceptWelcome()`, `listGroups()`, `getMembers()`, `addMember()`, `removeMember()`, `updateGroupMetadata()`, `prepareGroupImage()`, `setGroupImage()`, `clearGroupImage()`, `decryptGroupImage()`
+**Groups:** `createGroup`, `processWelcome`, `getPendingWelcomes`, `acceptWelcome`, `listGroups`, `getMembers`, `addMember`, `removeMember`, `updateGroupMetadata`, `prepareGroupImage` (static), `setGroupImage`, `clearGroupImage`, `decryptGroupImage` (static)
 
-**Key packages:**
-`createKeyPackage()`, `createSignedKeyPackage()`
+**Key packages:** `createKeyPackage`, `createSignedKeyPackage`
 
-**Messages:**
-`sendMessage()`, `buildMediaRumor()`, `processIncoming()`
+**Messages:** `sendMessage`, `buildMediaRumor`, `sendStructured`, `processIncoming`, `getMessages`, `getMessage`, `getLastMessage`
 
-**Media:**
-`encryptMedia()`, `decryptMedia()`
+**Media:** `encryptMedia`, `decryptMedia`
 
-**Lifecycle:**
-`dispose()`
+**Lifecycle:** `dispose()`
+
+### Top-level functions (no `Marmot` instance needed)
+
+- `buildUnsignedRumor({npub, content, contentType?})` — build an unsigned kind-9 rumor
+- `signEvent(nsec, unsignedEventJson)` — sign any Nostr event with an nsec
 
 ### `MarmotIdentity` class
 
-Static pure functions: `generate()`, `importFromNsec()`, `validateNsec()`, `npubFromNsec()`, `pubkeyHexFromNpub()`
-
-### Pure functions
-
-`buildUnsignedRumor(npub, content)` — build an unsigned Nostr rumor event.
-
-`signEvent(nsec, unsignedEventJson)` — sign any Nostr event with an nsec.
+Static pure functions: `generate()`, `importFromNsec(nsec)`, `validateNsec(nsec)`, `npubFromNsec(nsec)`, `pubkeyHexFromNpub(npub)`
 
 ### Models
 
-`NostrKeypair`, `KeyPackageEventData`, `CreateGroupParams`, `GroupCreateResult`, `MarmotGroup`, `MarmotMember`, `PendingWelcome`, `MemberChangeResult`, `MarmotMessage`, `EncryptedMediaOutput`, `MediaRefInput`, `MarmotError`
+`StorageConfig`, `NostrKeypair`, `KeyPackageEventData`, `CreateGroupParams`, `GroupCreateResult`, `MarmotGroup`, `MarmotMember`, `PendingWelcome`, `MemberChangeResult`, `GroupMetadataUpdate`, `GroupImagePrepared`, `MarmotMessage`, `MarmotMediaRef`, `MessageListParams`, `EncryptedMediaOutput`, `MediaRefInput`, `MarmotError`
 
 ## Architecture
 

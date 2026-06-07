@@ -1,3 +1,7 @@
+## 0.0.4
+
+- Added `ensureNativeLibrary()` guards to `initKeyringStore`, `initMdk`, and `removeSession`. Prevents native library "not loaded" crashes when calling init functions before the FFI layer is ready.
+
 ## 0.0.3
 
 - `buildUnsignedRumor` now uses named parameters with optional `contentType` for structured (JSON) payloads. The receiver's `MarmotMessage.payloadJson` is populated when a content-type tag is present.

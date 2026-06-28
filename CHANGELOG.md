@@ -1,4 +1,4 @@
-## 0.0.5
+## 0.0.6
 
 - New `Marmot.getGroup(groupId)` — get a single group's metadata and state by its ID.
 

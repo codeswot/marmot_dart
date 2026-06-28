@@ -126,6 +126,10 @@ class Marmot {
   /// List all groups this identity is a member of.
   Future<List<groups.MarmotGroup>> listGroups() => groups.list(dbPath: dbPath);
 
+  /// Get a single group by its ID.
+  Future<groups.MarmotGroup?> getGroup(String groupId) =>
+      groups.getGroup(dbPath: dbPath, groupId: groupId);
+
   /// List the members of a group.
   Future<List<groups.MarmotMember>> getMembers(String groupId) =>
       groups.getMembers(dbPath: dbPath, groupId: groupId);

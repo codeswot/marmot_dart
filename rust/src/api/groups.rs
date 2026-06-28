@@ -168,6 +168,14 @@ pub fn list(db_path: String) -> Result<Vec<MarmotGroup>, MarmotError> {
     })
 }
 
+pub fn get_group(db_path: String, group_id: String) -> Result<Option<MarmotGroup>, MarmotError> {
+    let gid = group_id_from_hex(&group_id)?;
+    state::with_state(&db_path, |s| match s.mdk.get_group(&gid)? {
+        Some(g) => Ok(Some(group_dto(&s.mdk, &g)?)),
+        None => Ok(None),
+    })
+}
+
 pub fn get_members(db_path: String, group_id: String) -> Result<Vec<MarmotMember>, MarmotError> {
     let gid = group_id_from_hex(&group_id)?;
     state::with_state(&db_path, |s| {

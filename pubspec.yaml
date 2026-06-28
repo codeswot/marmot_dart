@@ -1,6 +1,6 @@
 name: marmot_dart
 description: "End-to-end encrypted group messaging for Flutter, built on the Marmot protocol (MLS over Nostr) via MDK."
-version: 0.0.4
+version: 0.0.5
 homepage: https://github.com/codeswot/marmot_dart
 repository: https://github.com/codeswot/marmot_dart
 topics:

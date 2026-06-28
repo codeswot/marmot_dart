@@ -43,6 +43,14 @@ Future<void> acceptWelcome({
 Future<List<MarmotGroup>> list({required String dbPath}) =>
     RustLib.instance.api.crateApiGroupsList(dbPath: dbPath);
 
+Future<MarmotGroup?> getGroup({
+  required String dbPath,
+  required String groupId,
+}) => RustLib.instance.api.crateApiGroupsGetGroup(
+  dbPath: dbPath,
+  groupId: groupId,
+);
+
 Future<List<MarmotMember>> getMembers({
   required String dbPath,
   required String groupId,

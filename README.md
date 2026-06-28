@@ -130,6 +130,7 @@ await marmot.acceptWelcome(pending.first.id);
 
 ```dart
 final groups  = await marmot.listGroups();
+final group   = await marmot.getGroup(groupId);
 final members = await marmot.getMembers(group.id);
 
 // addMember / removeMember return evolution event + new welcome rumors
@@ -316,7 +317,7 @@ One instance per database. All operations that need the encrypted store are inst
 
 **Factories (static):** `Marmot.memory()`, `Marmot.sqlite()`, `Marmot.sqliteWithKey()`, `Marmot.initKeyringStore()`
 
-**Groups:** `createGroup`, `processWelcome`, `getPendingWelcomes`, `acceptWelcome`, `listGroups`, `getMembers`, `addMember`, `removeMember`, `updateGroupMetadata`, `prepareGroupImage` (static), `setGroupImage`, `clearGroupImage`, `decryptGroupImage` (static), `leaveGroup`, `deleteMessagesForGroup`, `deleteGroup`
+**Groups:** `createGroup`, `processWelcome`, `getPendingWelcomes`, `acceptWelcome`, `listGroups`, `getGroup`, `getMembers`, `addMember`, `removeMember`, `updateGroupMetadata`, `prepareGroupImage` (static), `setGroupImage`, `clearGroupImage`, `decryptGroupImage` (static), `leaveGroup`, `deleteMessagesForGroup`, `deleteGroup`
 
 **Key packages:** `createKeyPackage`, `createSignedKeyPackage`
 

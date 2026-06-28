@@ -1,3 +1,7 @@
+## 0.0.5
+
+- New `Marmot.getGroup(groupId)` — get a single group's metadata and state by its ID.
+
 ## 0.0.4
 
 - Added `ensureNativeLibrary()` guards to `initKeyringStore`, `initMdk`, and `removeSession`. Prevents native library "not loaded" crashes when calling init functions before the FFI layer is ready.

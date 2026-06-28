@@ -5,17 +5,27 @@
 
 import '../frb_generated.dart';
 import '../state.dart';
+import '../../_ensure.dart';
 import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-Future<void> initKeyringStore() =>
-    RustLib.instance.api.crateApiInitInitKeyringStore();
+Future<void> initKeyringStore() async {
+  await ensureNativeLibrary();
+  return RustLib.instance.api.crateApiInitInitKeyringStore();
+}
 
 Future<void> initMdk({
   required String dbPath,
   required StorageConfig storage,
-}) =>
-    RustLib.instance.api.crateApiInitInitMdk(dbPath: dbPath, storage: storage);
+}) async {
+  await ensureNativeLibrary();
+  return RustLib.instance.api.crateApiInitInitMdk(
+    dbPath: dbPath,
+    storage: storage,
+  );
+}
 
-Future<void> removeSession({required String dbPath}) =>
-    RustLib.instance.api.crateApiInitRemoveSession(dbPath: dbPath);
+Future<void> removeSession({required String dbPath}) async {
+  await ensureNativeLibrary();
+  return RustLib.instance.api.crateApiInitRemoveSession(dbPath: dbPath);
+}
